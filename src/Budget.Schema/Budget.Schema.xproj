@@ -17,5 +17,7 @@
     <SchemaVersion>2.0</SchemaVersion>
   </PropertyGroup>
   <Import Project="$(VSToolsPath)\DNX\Microsoft.DNX.targets" Condition="'$(VSToolsPath)' != ''" />
-
+  <PropertyGroup>
+    <PreBuildEvent>$(ProjectDir)../tools/protoc -I="$(ProjectDir)/ProtocolBuffers" --csharp_out="$(ProjectDir)/ProtocolBuffers" "$(ProjectDir)/ProtocolBuffers/Data.proto" "$(ProjectDir)/ProtocolBuffers/Events.proto" "$(ProjectDir)/ProtocolBuffers/Views.proto"</PreBuildEvent>
+  </PropertyGroup>
 </Project>
