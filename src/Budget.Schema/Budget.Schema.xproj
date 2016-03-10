@@ -17,7 +17,9 @@
     <SchemaVersion>2.0</SchemaVersion>
   </PropertyGroup>
   <Import Project="$(VSToolsPath)\DNX\Microsoft.DNX.targets" Condition="'$(VSToolsPath)' != ''" />
-  <PropertyGroup>
-    <PreBuildEvent>$(ProjectDir)../../tools/protoc -I="$(ProjectDir)/ProtocolBuffers" --csharp_out="$(ProjectDir)/ProtocolBuffers" "$(ProjectDir)/ProtocolBuffers/Data.proto" "$(ProjectDir)/ProtocolBuffers/Events.proto" "$(ProjectDir)/ProtocolBuffers/Views.proto"</PreBuildEvent>
-  </PropertyGroup>
+  <Target Name="BeforeClean">
+    <Message Text="MSBuildThisFileDirectory: $(MSBuildThisFileDirectory)"/>
+
+    <Exec Command=" $(MSBuildThisFileDirectory)..\..\tools\protoc -I=$(MSBuildThisFileDirectory)ProtocolBuffers --csharp_out=$(MSBuildThisFileDirectory)ProtocolBuffers $(MSBuildThisFileDirectory)ProtocolBuffers\Data.proto $(MSBuildThisFileDirectory)ProtocolBuffers\Events.proto $(MSBuildThisFileDirectory)ProtocolBuffers\Views.proto"></Exec>
+  </Target>
 </Project>
