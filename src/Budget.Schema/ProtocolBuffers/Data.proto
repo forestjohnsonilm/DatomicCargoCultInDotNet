@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package sequentialread.budget;
+
+option csharp_namespace = "Budget.Data.Data";
+
+
+message Transaction {
+  bytes id = 1;
+  uint32 categoryId = 2;
+  TransactionCategory category = 3;
+  uint32 userId = 4;
+  uint64 date = 5;
+  sint32 cents = 6;
+  string description = 7;
+  string card = 8;
+  uint32 checkNumber = 9;
+}
+
+message TransactionCategory {
+  uint32 id = 1;
+  Color color = 2;
+  string name = 3;
+}
+
+message Color {
+  float h = 1;
+  float s = 2;
+  float v = 3;
+}
+
+message CategoryKeyword {
+  string keyword = 1;
+  repeated CategorySuggestion suggestions = 2;
+}
+
+message CategorySuggestion { 
+  uint32 categoryId = 1;
+  uint32 popularity = 2;
+}

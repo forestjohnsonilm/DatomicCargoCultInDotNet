@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package sequentialread.budget;
+
+option csharp_namespace = "Budget.Data.Views";
+
+import "Data.proto";
+
+message TransactionList {
+  PageInfo pageInfo = 1;
+  repeated Filter filters = 2;
+  repeated Transaction transactions = 3;
+}
+
+message UnsortedTransaction {
+  Transaction transaction = 1;
+  repeated TransactionCategory categories = 3;
+}
+
+message PageInfo {
+  uint32 currentPage = 1;
+  uint32 pageCount = 2;
+  uint32 resultsPerPage = 3;
+}
+
+message Filter {
+  oneof filter_type {
+     DateRangeFilter dateRangeFilter = 1;
+  }
+}
+
+message DateRangeFilter {
+  int64 start = 1;
+  int64 end = 2;
+}
+
+message ReportDataSeries {
+  repeated Filter filters = 1;
+  int64 frequency = 2;
+  repeated ReportDataGroup series = 3;
+}
+
+message ReportDataGroup {
+  repeated Filter filters = 1;
+  repeated ReportDataPoint data = 2;
+}
+
+message ReportDataPoint {
+  TransactionCategory category = 1;
+  sint32 cents = 2;
+}

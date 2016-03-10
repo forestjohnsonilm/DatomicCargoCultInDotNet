@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package sequentialread.budget;
+
+option csharp_namespace = "Budget.Data.Events";
+
+import "Data.proto";
+
+message Event {
+  uint32 userId = 2;
+  int64 date = 3;
+  oneof event_type {
+     UploadSpreadsheetEvent uploadSpreadsheetEvent = 10;
+     SortTransactionEvent sortTransactionEvent = 11;
+  }
+}
+
+message UploadSpreadsheetEvent {
+  enum SpreadsheetSource {
+      UNKNOWN = 0;
+      BREMER = 1;
+      GNUCASH_CUSTOM = 2;
+  }
+  SpreadsheetSource source = 2;
+  string filename = 3;
+  repeated SpreadsheetRow rows = 4;
+}
+
+message SpreadsheetRow {
+  repeated string fields = 1;
+}
+
+message SortTransactionEvent {
+  Transaction transaction = 1;
+  TransactionCategory category = 3;
+}
