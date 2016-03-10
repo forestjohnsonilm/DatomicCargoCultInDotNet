@@ -1,13 +1,19 @@
 ﻿using System.Reflection;
 using System.Linq;
+using System;
+using System.Collections.Generic;
 
 namespace DatomicNet.Core
 {
     public class TypeRegistry
     {
-        public TypeRegistry(params Assembly[] assemblies)
+        public TypeRegistry(
+                Func<Assembly, Type, bool> registerTypePredicate,
+                params Assembly[] assemblies
+            )
         {
-            //assemblies.SelectMany(x => x.ExportedTypes.Where(x => x.Get))
+            var test = assemblies.SelectMany(assembly => assembly.ExportedTypes.Where(type => registerTypePredicate(assembly, type)))
+                .Select(x => x);
         }
     }
 }
