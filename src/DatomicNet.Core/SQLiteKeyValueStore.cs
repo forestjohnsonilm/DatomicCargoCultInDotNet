@@ -19,13 +19,13 @@ namespace DatomicNet.Core
 
         public SQLiteKeyValueStoreFactory()
         {
-            var dbFilePath = Path.Combine(FindAppDataFolder(Directory.GetCurrentDirectory()), _databaseFileName);
+            var dbFilePath = Path.Combine(FindDbFolder(Directory.GetCurrentDirectory()), _databaseFileName);
             if (!File.Exists(dbFilePath))
             {
                 File.Create(dbFilePath);
             }
 
-            _connection = new SqliteConnection($"Data Source={dbFilePath};Version=3;");
+            _connection = new SqliteConnection($"Data Source={dbFilePath};");
             _connection.Open();
         }
 
@@ -41,7 +41,6 @@ namespace DatomicNet.Core
             var makeTable = _connection.CreateCommand();
             makeTable.CommandText = $"CREATE TABLE IF NOT EXISTS kv_{indexId} ("
                                     + $"key BINARY({keyWidthInBytes}) PRIMARY KEY ASC NOT NULL, "
-                                    + $"valueLength INTEGER(4) NOT NULL, "
                                     + $"value BINARY NOT NULL"
                                     + $") WITHOUT ROWID";
 
@@ -57,13 +56,13 @@ namespace DatomicNet.Core
             );
         }
 
-        private string FindAppDataFolder(string workingDirectory)
+        private string FindDbFolder(string workingDirectory)
         {
             var directory = new DirectoryInfo(workingDirectory);
             string appDataPath = null;
             while (appDataPath == null && directory.Parent != null)
             {
-                var appDataDir = directory.GetDirectories("AppData");
+                var appDataDir = directory.GetDirectories("db");
                 if (appDataDir.Any())
                 {
                     appDataPath = appDataDir.First().FullName; ;
@@ -114,16 +113,13 @@ namespace DatomicNet.Core
             var keyBytes = _getKeyBytes(key);
             using (var command = _connection.CreateCommand())
             {
-                command.CommandText = $"SELECT valueLength, value from kv_{ _indexId} where key = @key";
+                command.CommandText = $"SELECT value from kv_{ _indexId} where key = @key";
                 command.Parameters.Add("@key", SqliteType.Blob, keyBytes.Length).Value = keyBytes;
                 using (var reader = command.ExecuteReader(System.Data.CommandBehavior.SingleRow))
                 {
                     if (reader.Read())
                     {
-                        var valueLength = reader.GetInt32(0);
-                        var valueBytes = new byte[valueLength];
-                        reader.GetBytes(1, 0, valueBytes, 0, valueLength);
-                        return _getTFromKeyValueBytes(keyBytes, valueBytes);
+                        return _getTFromKeyValueBytes(keyBytes, reader.GetFieldValue<byte[]>(0));
                     }
                 }
             }
@@ -154,19 +150,14 @@ namespace DatomicNet.Core
 
             using (var command = _connection.CreateCommand())
             {
-                command.CommandText = $"SELECT key, valueLength, value from kv_{ _indexId} where key > @min and key < @max";
+                command.CommandText = $"SELECT key, value from kv_{ _indexId} where key > @min and key < @max";
                 command.Parameters.Add("@min", SqliteType.Blob, minBytes.Length).Value = minBytes;
                 command.Parameters.Add("@max", SqliteType.Blob, maxBytes.Length).Value = maxBytes;
-                using (var reader = command.ExecuteReader(CommandBehavior.SingleResult))
+                using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        var keyBytes = new byte[minBytes.Length];
-                        reader.GetBytes(0, 0, keyBytes, 0, keyBytes.Length);
-                        var valueLength = reader.GetInt32(1);
-                        var valueBytes = new byte[valueLength];
-                        reader.GetBytes(2, 0, valueBytes, 0, valueLength);
-                        yield return _getTFromKeyValueBytes(keyBytes, valueBytes);
+                        yield return _getTFromKeyValueBytes(reader.GetFieldValue<byte[]>(0), reader.GetFieldValue<byte[]>(1));
                     }
                 }
             }
@@ -237,18 +228,17 @@ namespace DatomicNet.Core
                 var byteKeyValues = _values.Select(x => new KeyValuePair<byte[], byte[]>(_getKeyBytes(x), _getValueBytes(x)));
                 using (var command = _connection.CreateCommand())
                 {
-                    command.CommandText = $"INSERT OR REPLACE INTO kv_{_indexId} (key, valueLength, value) VALUES (@key, @valueLength, @value)";
+                    command.CommandText = $"INSERT OR REPLACE INTO kv_{_indexId} (key, value) VALUES (@key, @value)";
                     command.Parameters.Add("@key", SqliteType.Blob, byteKeyValues.First().Key.Length);
-                    command.Parameters.Add("@valueLength", SqliteType.Integer, 4);
                     command.Parameters.Add("@value", SqliteType.Blob);
                     using (var transaction = _connection.BeginTransaction())
                     {
+                        command.Transaction = transaction;
                         foreach (var byteKeyValue in byteKeyValues)
                         {
                             command.Parameters[0].Value = byteKeyValue.Key;
-                            command.Parameters[1].Value = byteKeyValue.Value.Length;
-                            command.Parameters[2].Size = byteKeyValue.Value.Length;
-                            command.Parameters[2].Value = byteKeyValue.Value;
+                            command.Parameters[1].Size = byteKeyValue.Value.Length;
+                            command.Parameters[1].Value = byteKeyValue.Value;
                             command.ExecuteNonQuery();
                         }
                         transaction.Commit();
