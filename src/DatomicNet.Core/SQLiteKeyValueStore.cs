@@ -10,9 +10,9 @@ using System.IO;
 using Microsoft.Data;
 using System.Data;
 
-namespace Budget.Web.Services
+namespace DatomicNet.Core
 {
-    class SQLiteKeyValueStoreFactory<T, TKey> : IKeyValueStoreFactory<T, TKey>, IDisposable where T : class
+    public class SQLiteKeyValueStoreFactory<T, TKey> : IKeyValueStoreFactory<T, TKey>, IDisposable where T : class
     {
         private readonly string _databaseFileName = "MyDatabase.sqlite";
         private readonly SqliteConnection _connection;
