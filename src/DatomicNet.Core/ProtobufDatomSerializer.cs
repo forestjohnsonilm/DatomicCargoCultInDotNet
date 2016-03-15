@@ -152,7 +152,7 @@ namespace DatomicNet.Core
                     var getValueBytes = Expression.MakeMemberAccess(getDatom, datomValueMember);
 
                     getValue = Expression.Condition(
-                        Expression.NotEqual(Expression.Constant(null), getValueBytes),
+                        Expression.NotEqual(getDatom, Expression.Constant(null)),
                         _primitiveSerializers[property.PropertyType].GetDeserializeExpression(getValueBytes),
                         Expression.Constant(CreateInstance(property.PropertyType))
                     );
@@ -179,13 +179,14 @@ namespace DatomicNet.Core
 
             var fieldsCount = fields.Count();
 
-            var exception = Expression.Parameter(typeof(Exception));
-            var logExceptionMethod = typeof(ProtobufDatomSerializer).GetMethod("LogException");
-            var logException = Expression.Call(Expression.Constant(this), logExceptionMethod, exception);
-            var logError = Expression.Catch(exception, Expression.Block(logException, Expression.Convert(constructInstance, typeof(IMessage))));
-            var tryCatchExpression = Expression.TryCatch(createAndAssignAsIMessage, logError);
+            //var exception = Expression.Parameter(typeof(Exception));
+            //var logExceptionMethod = typeof(ProtobufDatomSerializer).GetMethod("LogException");
+            //var logException = Expression.Call(Expression.Constant(this), logExceptionMethod, exception);
+            //var logError = Expression.Catch(exception, Expression.Block(logException, Expression.Convert(constructInstance, typeof(IMessage))));
+            //var tryCatchExpression = Expression.TryCatch(createAndAssignAsIMessage, logError);
+            //var lambdaExpression = Expression.Lambda<Func<Datom[], IMessage>>(tryCatchExpression, orderedDatomsParameter);
 
-            var lambdaExpression = Expression.Lambda<Func<Datom[], IMessage>>(tryCatchExpression, orderedDatomsParameter);
+            var lambdaExpression = Expression.Lambda<Func<Datom[], IMessage>>(createAndAssignAsIMessage, orderedDatomsParameter);
 
             var compiledExpression = lambdaExpression.Compile();
 
