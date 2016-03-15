@@ -11,6 +11,7 @@ namespace DatomicNet.Core
     public class Datom
     {
         public readonly uint Type;
+        public readonly uint AggregateId;
         public readonly ulong Identity;
         public readonly ushort Parameter;
         public readonly ulong TransactionId;
@@ -19,6 +20,7 @@ namespace DatomicNet.Core
 
         public Datom(
                 uint type,
+                uint aggregateId,
                 ulong identity,
                 ushort parameter,
                 ulong transactionId,
@@ -27,6 +29,7 @@ namespace DatomicNet.Core
             )
         {
             Type = type;
+            AggregateId = aggregateId;
             Identity = identity;
             Parameter = parameter;
             Value = value;

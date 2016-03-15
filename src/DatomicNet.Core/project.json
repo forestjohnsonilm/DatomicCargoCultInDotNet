@@ -6,11 +6,19 @@
   "projectUrl": "",
   "licenseUrl": "",
   "dependencies": {
-    "Microsoft.Data.Sqlite": "1.0.0-rc1-final"
+    "Microsoft.Data.Sqlite": "1.0.0-rc1-final",
+    "Google.Protobuf": "3.0.0-beta2"
   },
 
   "frameworks": {
-    "net451": { },
+    "net451": {
+      "dependencies": {
+
+      },
+      "frameworkAssemblies": {
+        "System.Runtime": "4.0.10.0"
+      }
+    },
     "dotnet5.4": {
       "dependencies": {
         "Microsoft.CSharp": "4.0.1-beta-23516",
