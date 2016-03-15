@@ -360,10 +360,10 @@ namespace DatomicNet.Core
             return Activator.CreateInstance(type);
         }
 
-        public void LogException(Exception ex)
-        {
-            System.Console.WriteLine(ex.Message + "\r\n" + ex.StackTrace);
-        }
+        //public void LogException(Exception ex)
+        //{
+        //    System.Console.WriteLine(ex.Message + "\r\n" + ex.StackTrace);
+        //}
     }
 
 }
