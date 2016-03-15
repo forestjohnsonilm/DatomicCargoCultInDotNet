@@ -7,7 +7,6 @@ option csharp_namespace = "DatomicNet.Core.Tests";
 
 message TestAggregate {
   uint64 id = 1;
-  uint32 categoryId = 2;
   repeated TransactionCategory categories = 3;
   string description = 7;
   OtherThing otherThing = 9;

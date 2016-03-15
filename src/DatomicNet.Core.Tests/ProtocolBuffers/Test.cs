@@ -23,19 +23,19 @@ namespace DatomicNet.Core.Tests {
     static TestReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgpUZXN0LnByb3RvEhVEYXRvbWljTmV0LkNvcmUuVGVzdHMiuwEKDVRlc3RB",
-            "Z2dyZWdhdGUSCgoCaWQYASABKAQSEgoKY2F0ZWdvcnlJZBgCIAEoDRI+Cgpj",
-            "YXRlZ29yaWVzGAMgAygLMiouRGF0b21pY05ldC5Db3JlLlRlc3RzLlRyYW5z",
-            "YWN0aW9uQ2F0ZWdvcnkSEwoLZGVzY3JpcHRpb24YByABKAkSNQoKb3RoZXJU",
-            "aGluZxgJIAEoCzIhLkRhdG9taWNOZXQuQ29yZS5UZXN0cy5PdGhlclRoaW5n",
-            "IkAKE1RyYW5zYWN0aW9uQ2F0ZWdvcnkSCgoCaWQYASABKAQSDwoHaXNHcmVh",
-            "dBgCIAEoCBIMCgRuYW1lGAMgASgJIjkKCk90aGVyVGhpbmcSCgoCaWQYASAB",
-            "KAQSCQoBaBgCIAEoAhIJCgFzGAMgASgCEgkKAXYYBCABKAJCGKoCFURhdG9t",
-            "aWNOZXQuQ29yZS5UZXN0c2IGcHJvdG8z"));
+            "CgpUZXN0LnByb3RvEhVEYXRvbWljTmV0LkNvcmUuVGVzdHMipwEKDVRlc3RB",
+            "Z2dyZWdhdGUSCgoCaWQYASABKAQSPgoKY2F0ZWdvcmllcxgDIAMoCzIqLkRh",
+            "dG9taWNOZXQuQ29yZS5UZXN0cy5UcmFuc2FjdGlvbkNhdGVnb3J5EhMKC2Rl",
+            "c2NyaXB0aW9uGAcgASgJEjUKCm90aGVyVGhpbmcYCSABKAsyIS5EYXRvbWlj",
+            "TmV0LkNvcmUuVGVzdHMuT3RoZXJUaGluZyJAChNUcmFuc2FjdGlvbkNhdGVn",
+            "b3J5EgoKAmlkGAEgASgEEg8KB2lzR3JlYXQYAiABKAgSDAoEbmFtZRgDIAEo",
+            "CSI5CgpPdGhlclRoaW5nEgoKAmlkGAEgASgEEgkKAWgYAiABKAISCQoBcxgD",
+            "IAEoAhIJCgF2GAQgASgCQhiqAhVEYXRvbWljTmV0LkNvcmUuVGVzdHNiBnBy",
+            "b3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedCodeInfo(null, new pbr::GeneratedCodeInfo[] {
-            new pbr::GeneratedCodeInfo(typeof(global::DatomicNet.Core.Tests.TestAggregate), global::DatomicNet.Core.Tests.TestAggregate.Parser, new[]{ "Id", "CategoryId", "Categories", "Description", "OtherThing" }, null, null, null),
+            new pbr::GeneratedCodeInfo(typeof(global::DatomicNet.Core.Tests.TestAggregate), global::DatomicNet.Core.Tests.TestAggregate.Parser, new[]{ "Id", "Categories", "Description", "OtherThing" }, null, null, null),
             new pbr::GeneratedCodeInfo(typeof(global::DatomicNet.Core.Tests.TransactionCategory), global::DatomicNet.Core.Tests.TransactionCategory.Parser, new[]{ "Id", "IsGreat", "Name" }, null, null, null),
             new pbr::GeneratedCodeInfo(typeof(global::DatomicNet.Core.Tests.OtherThing), global::DatomicNet.Core.Tests.OtherThing.Parser, new[]{ "Id", "H", "S", "V" }, null, null, null)
           }));
@@ -65,7 +65,6 @@ namespace DatomicNet.Core.Tests {
 
     public TestAggregate(TestAggregate other) : this() {
       id_ = other.id_;
-      categoryId_ = other.categoryId_;
       categories_ = other.categories_.Clone();
       description_ = other.description_;
       OtherThing = other.otherThing_ != null ? other.OtherThing.Clone() : null;
@@ -82,16 +81,6 @@ namespace DatomicNet.Core.Tests {
       get { return id_; }
       set {
         id_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "categoryId" field.</summary>
-    public const int CategoryIdFieldNumber = 2;
-    private uint categoryId_;
-    public uint CategoryId {
-      get { return categoryId_; }
-      set {
-        categoryId_ = value;
       }
     }
 
@@ -136,7 +125,6 @@ namespace DatomicNet.Core.Tests {
         return true;
       }
       if (Id != other.Id) return false;
-      if (CategoryId != other.CategoryId) return false;
       if(!categories_.Equals(other.categories_)) return false;
       if (Description != other.Description) return false;
       if (!object.Equals(OtherThing, other.OtherThing)) return false;
@@ -146,7 +134,6 @@ namespace DatomicNet.Core.Tests {
     public override int GetHashCode() {
       int hash = 1;
       if (Id != 0UL) hash ^= Id.GetHashCode();
-      if (CategoryId != 0) hash ^= CategoryId.GetHashCode();
       hash ^= categories_.GetHashCode();
       if (Description.Length != 0) hash ^= Description.GetHashCode();
       if (otherThing_ != null) hash ^= OtherThing.GetHashCode();
@@ -161,10 +148,6 @@ namespace DatomicNet.Core.Tests {
       if (Id != 0UL) {
         output.WriteRawTag(8);
         output.WriteUInt64(Id);
-      }
-      if (CategoryId != 0) {
-        output.WriteRawTag(16);
-        output.WriteUInt32(CategoryId);
       }
       categories_.WriteTo(output, _repeated_categories_codec);
       if (Description.Length != 0) {
@@ -182,9 +165,6 @@ namespace DatomicNet.Core.Tests {
       if (Id != 0UL) {
         size += 1 + pb::CodedOutputStream.ComputeUInt64Size(Id);
       }
-      if (CategoryId != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeUInt32Size(CategoryId);
-      }
       size += categories_.CalculateSize(_repeated_categories_codec);
       if (Description.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Description);
@@ -201,9 +181,6 @@ namespace DatomicNet.Core.Tests {
       }
       if (other.Id != 0UL) {
         Id = other.Id;
-      }
-      if (other.CategoryId != 0) {
-        CategoryId = other.CategoryId;
       }
       categories_.Add(other.categories_);
       if (other.Description.Length != 0) {
@@ -226,10 +203,6 @@ namespace DatomicNet.Core.Tests {
             break;
           case 8: {
             Id = input.ReadUInt64();
-            break;
-          }
-          case 16: {
-            CategoryId = input.ReadUInt32();
             break;
           }
           case 26: {

@@ -91,7 +91,11 @@ namespace DatomicNet.Core
                                 var referencedType = types[reference.ReferencedType];
                                 if (referencedType.ContainsKey(reference.ReferencedIdentity))
                                 {
-                                    reference.Setter((IMessage)instanceKeyValue.Value.Message, (object)referencedType[reference.ReferencedIdentity].Message);
+                                    reference.Setter(
+                                        (IMessage)instanceKeyValue.Value.Message, 
+                                        (int)reference.RepeatedFieldIndex, 
+                                        (object)referencedType[reference.ReferencedIdentity].Message
+                                    );
                                 }
                             }
                         }
@@ -195,16 +199,33 @@ namespace DatomicNet.Core
             {
                 var titleCaseName = $"{field.Name.Substring(0, 1).ToUpper()}{field.Name.Substring(1)}";
                 var property = messageType.GetProperty(titleCaseName);
-                if (typeof(IMessage).IsAssignableFrom(property.PropertyType))
+                var isIMessage = typeof(IMessage).IsAssignableFrom(property.PropertyType);
+                var isRepeatedField = (
+                        property.PropertyType.IsConstructedGenericType 
+                        && property.PropertyType.GetGenericTypeDefinition() == typeof(RepeatedField<>)
+                    );
+
+                if (isIMessage || isRepeatedField)
                 {
-                    var referencedTypeId = _typeRegistry.IdByType[property.PropertyType];
+                    var referencedType = isRepeatedField ? property.PropertyType.GetGenericArguments()[0] : property.PropertyType;
+                    var referencedTypeId = _typeRegistry.IdByType[referencedType];
+                    var parameterIndexParam = Expression.Parameter(typeof(int), "parameterIndex");
                     var messageParam = Expression.Parameter(typeof(IMessage), "message");
                     var messageParamAsType = Expression.Convert(messageParam, messageType);
                     var valueProperty = Expression.Property(messageParamAsType, property);
                     var valueParam = Expression.Parameter(typeof(object), "referencedValue");
-                    var valueParamAsType = Expression.Convert(valueParam, property.PropertyType);
-                    var setValue = Expression.Assign(valueProperty, valueParamAsType);
-                    var setValueLambda = Expression.Lambda<Action<IMessage, object>>(setValue, messageParam, valueParam);
+                    var valueParamAsType = Expression.Convert(valueParam, referencedType);
+                    Expression setValue;
+                    if (isIMessage)
+                    {
+                        setValue = Expression.Assign(valueProperty, valueParamAsType);
+                    }
+                    else
+                    {
+                        var insertMethod = property.PropertyType.GetMethod($"{nameof(RepeatedField<bool>.Insert)}");
+                        setValue = Expression.Call(valueProperty, insertMethod, parameterIndexParam, valueParamAsType);
+                    }
+                    var setValueLambda = Expression.Lambda<Action<IMessage, int, object>>(setValue, messageParam, parameterIndexParam, valueParam);
                     var setValueCompiled = setValueLambda.Compile();
 
                     Func<Datom, SingleMessage.Reference> refGetter = (datom) => {
@@ -212,6 +233,7 @@ namespace DatomicNet.Core
                         {
                             return new SingleMessage.Reference()
                             {
+                                RepeatedFieldIndex = datom.ParameterArrayIndex,
                                 ReferencedType = referencedTypeId,
                                 ReferencedIdentity = BitConverter.ToUInt64(datom.Value, 0),
                                 Setter = setValueCompiled
@@ -226,22 +248,37 @@ namespace DatomicNet.Core
             .ToArray();
 
             return (datoms) => {
-                var orderedDatoms = new Datom[fieldsCount];
+                var orderedDatoms = new Dictionary<int, Datom>[fieldsCount];
 
                 foreach(var datom in datoms)
                 {
                     var fieldIndex = fieldIndexByFieldNumber[datom.Parameter];
-                    var preExisting = orderedDatoms[fieldIndex];
+                    var datomsByArrayIndex = orderedDatoms[fieldIndex];
+                    if(datomsByArrayIndex == null)
+                    {
+                        datomsByArrayIndex = orderedDatoms[fieldIndex] = new Dictionary<int, Datom>();
+                    }
+                    var hasPreExisting = datomsByArrayIndex.ContainsKey((int)datom.ParameterArrayIndex);
+                    var preExisting = hasPreExisting ? datomsByArrayIndex[(int)datom.ParameterArrayIndex] : null;
                     if (preExisting == null || preExisting.TransactionId < datom.TransactionId)
                     {
-                        orderedDatoms[fieldIndex] = datom;
+                        datomsByArrayIndex[(int)datom.ParameterArrayIndex] = datom;
                     }
                 }
 
+                var hydrateSimpleFields = orderedDatoms.Select(x => x != null ? x.Select(y => y.Value).FirstOrDefault() : null).ToArray();
+
                 return new SingleMessage()
                 {
-                    Message = compiledExpression(orderedDatoms),
-                    References = orderedDatoms.Select((datom, id) => referenceGetterByFieldIndex[id] != null ? referenceGetterByFieldIndex[id](datom) : null).Where(x => x != null).ToList()
+                    Message = compiledExpression(hydrateSimpleFields),
+                    References = orderedDatoms.SelectMany((byArrayId, id) => {
+                        if(byArrayId != null && referenceGetterByFieldIndex[id] != null)
+                        {
+                            return byArrayId.Select(datomKv => referenceGetterByFieldIndex[id](datomKv.Value));
+                        }
+                        return Enumerable.Empty<SingleMessage.Reference>();
+                    })
+                    .ToList()
                 };
             };
         }
@@ -271,9 +308,10 @@ namespace DatomicNet.Core
 
             public class Reference
             {
+                public uint RepeatedFieldIndex;
                 public uint ReferencedType;
                 public ulong ReferencedIdentity;
-                public Action<IMessage, object> Setter;
+                public Action<IMessage, int, object> Setter;
             }
         }
 

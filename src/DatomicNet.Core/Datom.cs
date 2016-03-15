@@ -15,7 +15,7 @@ namespace DatomicNet.Core
         public ushort Type { get; }
         public ulong Identity { get; }
         public ushort Parameter { get; }
-        public uint ParameterIndex { get; }
+        public uint ParameterArrayIndex { get; }
         public ulong TransactionId { get; }
         public DatomAction Action { get; }
         public byte[] Value { get; }
@@ -37,7 +37,7 @@ namespace DatomicNet.Core
             AggregateIdentity = aggregateId;
             Identity = identity;
             Parameter = parameter;
-            ParameterIndex = parameterIndex;
+            ParameterArrayIndex = parameterIndex;
             Value = value;
             TransactionId = transactionId;
             Action = action;
