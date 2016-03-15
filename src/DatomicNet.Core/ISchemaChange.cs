@@ -8,9 +8,9 @@ namespace DatomicNet.Core
     public interface ISchemaChange
     {
         long TransactionId { get; }
-        IReadOnlyDictionary<Type, uint> RegisterTypes { get; }
-        IReadOnlyDictionary<Type, uint> RegisterAggregates { get; }
-        IReadOnlyDictionary<uint, Func<IEnumerable<Datom>, IEnumerable<Datom>>> MapEntityStreamForType { get; }
+        IReadOnlyDictionary<Type, ushort> RegisterTypes { get; }
+        IReadOnlyDictionary<Type, ushort> RegisterAggregates { get; }
+        IReadOnlyDictionary<ushort, Func<IEnumerable<Datom>, IEnumerable<Datom>>> MapEntityStreamForType { get; }
         bool RequiresReIndex { get; }
     }
 }

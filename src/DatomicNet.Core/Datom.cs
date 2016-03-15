@@ -10,32 +10,59 @@ namespace DatomicNet.Core
    
     public class Datom
     {
-        public readonly uint Type;
-        public readonly uint AggregateId;
+        public readonly ushort AggregateType;
+        public readonly ulong AggregateIdentity;
+        public readonly ushort Type;
         public readonly ulong Identity;
         public readonly ushort Parameter;
+        public readonly uint ParameterIndex;
         public readonly ulong TransactionId;
         public readonly DatomAction Action;
         public readonly byte[] Value;
 
         public Datom(
-                uint type,
-                uint aggregateId,
+                ushort aggregateTypeId,
+                ulong aggregateId,
+                ushort type,
                 ulong identity,
                 ushort parameter,
+                uint parameterIndex,
+                byte[] value,
                 ulong transactionId,
-                DatomAction action,
-                byte[] value
+                DatomAction action
             )
         {
             Type = type;
-            AggregateId = aggregateId;
+            AggregateType = aggregateTypeId;
+            AggregateIdentity = aggregateId;
             Identity = identity;
             Parameter = parameter;
+            ParameterIndex = parameterIndex;
             Value = value;
             TransactionId = transactionId;
             Action = action;
         }
+
+        public Datom(
+                ushort type,
+                ulong identity,
+                ushort parameter,
+                uint parameterIndex,
+                byte[] value,
+                ulong transactionId,
+                DatomAction action
+            ) : this((ushort)0, (ulong)0, type, identity, parameter, parameterIndex, value, transactionId, action)
+        { }
+
+        public Datom(
+                ushort type,
+                ulong identity,
+                ushort parameter,
+                byte[] value,
+                ulong transactionId,
+                DatomAction action
+            ) : this((ushort)0, (ulong)0, type, identity, parameter, 0, value, transactionId, action)
+        { }
     }
 
     public enum DatomAction

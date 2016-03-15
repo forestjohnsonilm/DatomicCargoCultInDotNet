@@ -17,27 +17,258 @@ namespace DatomicNet.Core.Tests
     public class ProtobufSerializerTest
     {
 
-        [Fact]
-        public void SerializerSmokeTest()
+        private TypeRegistry _typeRegistry;
+        private ProtobufDatomSerializer _datomSerializer;
+        private ulong _aggregateIdentity = 1;
+        private ulong _categoryId1 = 10;
+        private ulong _categoryId2 = 20;
+        private ulong _otherThingId = 3;
+        private ulong _txId = 1;
+
+        public ProtobufSerializerTest()
         {
             var assemblies = new Assembly[] { typeof(ProtobufSerializerTest).GetTypeInfo().Assembly };
-            var typeRegistry = new TypeRegistry((type) => typeof(IMessage).IsAssignableFrom(type), assemblies);
-            var datomSerializer = new ProtobufDatomSerializer(typeRegistry, assemblies);
+            _typeRegistry = new TypeRegistry((type) => typeof(IMessage).IsAssignableFrom(type), assemblies);
+            _datomSerializer = new ProtobufDatomSerializer(_typeRegistry, assemblies);
+        }
+
+        [Fact]
+        public void DeserializeTest()
+        {
+            var datoms = GetTestDatoms();
+
+            var result = _datomSerializer.Deserialize<TestAggregate>(datoms);
+
+            result.ShouldBeEquivalentTo(GetTestAggregate());
+
         }
         
+        //message TestAggregate {
+        //  uint64 id = 1;
+        //  uint32 categoryId = 2;
+        //  repeated TransactionCategory categories = 3;
+        //  string description = 7;
+        //  OtherThing otherThing = 9;
+        //}
+
+        //message TransactionCategory {
+        //  uint64 id = 1;
+        //  bool isGreat = 2;
+        //  string name = 3;
+        //}
+
+        //message OtherThing {
+        //  uint64 id = 1;
+        //  float h = 2;
+        //  float s = 3;
+        //  float v = 4;
+        //}
+
+        private TestAggregate GetTestAggregate()
+        {
+            var toReturn = new TestAggregate()
+            {
+                Id = _aggregateIdentity,
+                OtherThing = new OtherThing()
+                {
+                    Id = _otherThingId,
+                    H = 0.1f,
+                    S = 0.2f,
+                    V = 0.3f,
+                }
+            };
+
+            toReturn.Categories.Add(new TransactionCategory()
+            {
+                Id = _categoryId1,
+                IsGreat = true,
+                Name = "_categoryId1"
+            });
+            toReturn.Categories.Add(new TransactionCategory()
+            {
+                Id = _categoryId2,
+                IsGreat = true,
+                Name = "_categoryId2"
+            });
+
+            return toReturn;
+        }
+
+        private IEnumerable<Datom> GetTestDatoms ()
+        {
+            //yield return new Datom(
+            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _aggregateIdentity,
+            //    _typeRegistry.IdByType[typeof(TestAggregate)],
+            //    _aggregateIdentity,
+            //    (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.Id)}").FieldNumber,
+            //    0,
+            //    BitConverter.GetBytes(_aggregateIdentity),
+            //    _txId,
+            //    DatomAction.Assertion
+            //);
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.CategoryId)}").FieldNumber,
+                0,
+                BitConverter.GetBytes(_categoryId1),
+                _txId,
+                DatomAction.Assertion
+            );
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.CategoryId)}").FieldNumber,
+                1,
+                BitConverter.GetBytes(_categoryId2),
+                _txId,
+                DatomAction.Assertion
+            );
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.OtherThing)}").FieldNumber,
+                0,
+                BitConverter.GetBytes(_otherThingId),
+                _txId,
+                DatomAction.Assertion
+            );
+
+
+
+            //yield return new Datom(
+            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _aggregateIdentity,
+            //    _typeRegistry.IdByType[typeof(TransactionCategory)],
+            //    _categoryId1,
+            //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Id)}").FieldNumber,
+            //    0,
+            //    BitConverter.GetBytes(_categoryId1),
+            //    _txId,
+            //    DatomAction.Assertion
+            //);
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _categoryId1,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.IsGreat)}").FieldNumber,
+                0,
+                BitConverter.GetBytes(true),
+                _txId,
+                DatomAction.Assertion
+            );
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _categoryId1,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Name)}").FieldNumber,
+                0,
+                Encoding.UTF8.GetBytes("_categoryId1"),
+                _txId,
+                DatomAction.Assertion
+            );
+
+            //yield return new Datom(
+            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _aggregateIdentity,
+            //    _typeRegistry.IdByType[typeof(TransactionCategory)],
+            //    _categoryId2,
+            //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Id)}").FieldNumber,
+            //    0,
+            //    BitConverter.GetBytes(_categoryId2),
+            //    _txId,
+            //    DatomAction.Assertion
+            //);
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _categoryId2,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.IsGreat)}").FieldNumber,
+                0,
+                BitConverter.GetBytes(true),
+                _txId,
+                DatomAction.Assertion
+            );
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _categoryId2,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Name)}").FieldNumber,
+                0,
+                Encoding.UTF8.GetBytes("_categoryId2"),
+                _txId,
+                DatomAction.Assertion
+            );
+
+            //yield return new Datom(
+            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _aggregateIdentity,
+            //    _typeRegistry.IdByType[typeof(OtherThing)],
+            //    _otherThingId,
+            //    (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.Id)}").FieldNumber,
+            //    0,
+            //    BitConverter.GetBytes(_otherThingId),
+            //    _txId,
+            //    DatomAction.Assertion
+            //);
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(OtherThing)],
+                _otherThingId,
+                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.H)}").FieldNumber,
+                0,
+                BitConverter.GetBytes(0.1f),
+                _txId,
+                DatomAction.Assertion
+            );
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(OtherThing)],
+                _otherThingId,
+                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.S)}").FieldNumber,
+                0,
+                BitConverter.GetBytes(0.2f),
+                _txId,
+                DatomAction.Assertion
+            );
+            yield return new Datom(
+                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _aggregateIdentity,
+                _typeRegistry.IdByType[typeof(OtherThing)],
+                _otherThingId,
+                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.V)}").FieldNumber,
+                0,
+                BitConverter.GetBytes(0.3f),
+                _txId,
+                DatomAction.Assertion
+            );
+        }
 
     }
 
     public class InitialSchema : ISchemaChange
     {
-        public IReadOnlyDictionary<uint, Func<IEnumerable<Datom>, IEnumerable<Datom>>> MapEntityStreamForType => null;
+        public IReadOnlyDictionary<ushort, Func<IEnumerable<Datom>, IEnumerable<Datom>>> MapEntityStreamForType => null;
 
-        public IReadOnlyDictionary<Type, uint> RegisterAggregates => new Dictionary<Type, uint>()
+        public IReadOnlyDictionary<Type, ushort> RegisterAggregates => new Dictionary<Type, ushort>()
         {
             { typeof(TestAggregate), 1 },
         };
 
-        public IReadOnlyDictionary<Type, uint> RegisterTypes => new Dictionary<Type, uint>()
+        public IReadOnlyDictionary<Type, ushort> RegisterTypes => new Dictionary<Type, ushort>()
         {
             { typeof(TestAggregate), 1 },
             { typeof(TransactionCategory), 2 },

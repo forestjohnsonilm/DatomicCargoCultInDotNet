@@ -7,10 +7,10 @@ namespace DatomicNet.Core
 {
     public class TypeRegistry
     {
-        public readonly IReadOnlyDictionary<uint, Type> TypesById;
-        public readonly IReadOnlyDictionary<Type, uint> IdByType;
-        public readonly IReadOnlyDictionary<uint, Type> AggregateTypesById;
-        public readonly IReadOnlyDictionary<Type, uint> AggregateIdByType;
+        public readonly IReadOnlyDictionary<ushort, Type> TypesById;
+        public readonly IReadOnlyDictionary<Type, ushort> IdByType;
+        public readonly IReadOnlyDictionary<ushort, Type> AggregateTypesById;
+        public readonly IReadOnlyDictionary<Type, ushort> AggregateIdByType;
 
         public TypeRegistry(
                 Func<Type, bool> registerTypePredicate,
