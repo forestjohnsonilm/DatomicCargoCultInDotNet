@@ -35,9 +35,13 @@ namespace DatomicNet.Core.Tests
             public int Blah { get; set; }
         }
 
-        private class Holder<T> 
+        private class Holder<T> : H
         {
             public Func<T> Get;
+        }
+        private class H
+        {
+
         }
 
         [Fact]
@@ -47,13 +51,19 @@ namespace DatomicNet.Core.Tests
 
             var holder = new Holder<Asd>() { Get = () => new Asd() { Blah = 2 } };
 
+            //var holder2 =  (Holder<IAsd>)holder;
+
             var holder1 = Activator.CreateInstance(typeof(Holder<>).MakeGenericType(typeof(Asd))) as Holder<IAsd>;
             holder1.Get = () => new Asd() { Blah = 2 };
 
             var t = list[0].GetType();
             var t2 = list[0].Get().GetType();
 
+            var holder4 = holder1 as H;
 
+            IEnumerable<H> list10 = new List<H>() { holder4 };
+            var list11 = (IEnumerable<object>) list10;
+ 
             var t3 = holder1.GetType();
             var t4 = holder1.Get().GetType();
 

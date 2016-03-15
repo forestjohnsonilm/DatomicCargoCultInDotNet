@@ -41,7 +41,6 @@ namespace DatomicNet.Core.Tests
             var result = _datomSerializer.Deserialize<TestAggregate>(datoms);
 
             result.ShouldBeEquivalentTo(GetTestAggregate());
-
         }
         
         //message TestAggregate {
@@ -98,9 +97,9 @@ namespace DatomicNet.Core.Tests
         private IEnumerable<Datom> GetTestDatoms ()
         {
             //yield return new Datom(
-            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
             //    _aggregateIdentity,
-            //    _typeRegistry.IdByType[typeof(TestAggregate)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).TypeId,
             //    _aggregateIdentity,
             //    (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.Id)}")).FieldNumber,
             //    0,
@@ -109,9 +108,9 @@ namespace DatomicNet.Core.Tests
             //    DatomAction.Assertion
             //);
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).TypeId,
                 _aggregateIdentity,
                 (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.Categories)}")).FieldNumber,
                 0,
@@ -120,9 +119,9 @@ namespace DatomicNet.Core.Tests
                 DatomAction.Assertion
             );
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).TypeId,
                 _aggregateIdentity,
                 (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.Categories)}")).FieldNumber,
                 1,
@@ -131,9 +130,9 @@ namespace DatomicNet.Core.Tests
                 DatomAction.Assertion
             );
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).TypeId,
                 _aggregateIdentity,
                 (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.OtherThing)}")).FieldNumber,
                 0,
@@ -145,9 +144,9 @@ namespace DatomicNet.Core.Tests
 
 
             //yield return new Datom(
-            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
             //    _aggregateIdentity,
-            //    _typeRegistry.IdByType[typeof(TransactionCategory)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(TransactionCategory)).TypeId,
             //    _categoryId1,
             //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Id)}")).FieldNumber,
             //    0,
@@ -156,9 +155,9 @@ namespace DatomicNet.Core.Tests
             //    DatomAction.Assertion
             //);
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _typeRegistry.TypeRegistrationByType(typeof(TransactionCategory)).TypeId,
                 _categoryId1,
                 (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.IsGreat)}")).FieldNumber,
                 0,
@@ -167,9 +166,9 @@ namespace DatomicNet.Core.Tests
                 DatomAction.Assertion
             );
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _typeRegistry.TypeRegistrationByType(typeof(TransactionCategory)).TypeId,
                 _categoryId1,
                 (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Name)}")).FieldNumber,
                 0,
@@ -179,9 +178,9 @@ namespace DatomicNet.Core.Tests
             );
 
             //yield return new Datom(
-            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
             //    _aggregateIdentity,
-            //    _typeRegistry.IdByType[typeof(TransactionCategory)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(TransactionCategory)).TypeId,
             //    _categoryId2,
             //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Id)}")).FieldNumber,
             //    0,
@@ -190,9 +189,9 @@ namespace DatomicNet.Core.Tests
             //    DatomAction.Assertion
             //);
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _typeRegistry.TypeRegistrationByType(typeof(TransactionCategory)).TypeId,
                 _categoryId2,
                 (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.IsGreat)}")).FieldNumber,
                 0,
@@ -201,9 +200,9 @@ namespace DatomicNet.Core.Tests
                 DatomAction.Assertion
             );
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(TransactionCategory)],
+                _typeRegistry.TypeRegistrationByType(typeof(TransactionCategory)).TypeId,
                 _categoryId2,
                 (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Name)}")).FieldNumber,
                 0,
@@ -213,9 +212,9 @@ namespace DatomicNet.Core.Tests
             );
 
             //yield return new Datom(
-            //    _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
             //    _aggregateIdentity,
-            //    _typeRegistry.IdByType[typeof(OtherThing)],
+            //    _typeRegistry.TypeRegistrationByType(typeof(OtherThing)).TypeId,
             //    _otherThingId,
             //    (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.Id)}")).FieldNumber,
             //    0,
@@ -224,9 +223,9 @@ namespace DatomicNet.Core.Tests
             //    DatomAction.Assertion
             //);
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(OtherThing)],
+                _typeRegistry.TypeRegistrationByType(typeof(OtherThing)).TypeId,
                 _otherThingId,
                 (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.H)}")).FieldNumber,
                 0,
@@ -235,9 +234,9 @@ namespace DatomicNet.Core.Tests
                 DatomAction.Assertion
             );
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(OtherThing)],
+                _typeRegistry.TypeRegistrationByType(typeof(OtherThing)).TypeId,
                 _otherThingId,
                 (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.S)}")).FieldNumber,
                 0,
@@ -246,9 +245,9 @@ namespace DatomicNet.Core.Tests
                 DatomAction.Assertion
             );
             yield return new Datom(
-                _typeRegistry.AggregateIdByType[typeof(TestAggregate)],
+                _typeRegistry.TypeRegistrationByType(typeof(TestAggregate)).AggregateId.Value,
                 _aggregateIdentity,
-                _typeRegistry.IdByType[typeof(OtherThing)],
+                _typeRegistry.TypeRegistrationByType(typeof(OtherThing)).TypeId,
                 _otherThingId,
                 (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.V)}")).FieldNumber,
                 0,
@@ -268,24 +267,27 @@ namespace DatomicNet.Core.Tests
         }
     }
 
-    public class InitialSchema : ISchemaChange
+    public class TestSchema : ISchemaConfiguration
     {
-        public IReadOnlyDictionary<ushort, Func<IEnumerable<Datom>, IEnumerable<Datom>>> MapEntityStreamForType => null;
-
-        public IReadOnlyDictionary<Type, ushort> RegisterAggregates => new Dictionary<Type, ushort>()
+        public IReadOnlyList<BaseTypeRegistration> RegisterTypes => new List<BaseTypeRegistration>()
         {
-            { typeof(TestAggregate), 1 },
+            new BaseTypeRegistration()
+            {
+                Type = typeof(TestAggregate),
+                TypeId = 1,
+                AggregateId = 1,
+            },
+            new BaseTypeRegistration()
+            {
+                Type = typeof(TransactionCategory),
+                TypeId = 2,
+            },
+            new BaseTypeRegistration()
+            {
+                Type = typeof(OtherThing),
+                TypeId = 3,
+            }
         };
-
-        public IReadOnlyDictionary<Type, ushort> RegisterTypes => new Dictionary<Type, ushort>()
-        {
-            { typeof(TestAggregate), 1 },
-            { typeof(TransactionCategory), 2 },
-            { typeof(OtherThing), 3 }
-        };
-
-        public bool RequiresReIndex => false;
-        public long TransactionId => 1;
     }
 
 }
