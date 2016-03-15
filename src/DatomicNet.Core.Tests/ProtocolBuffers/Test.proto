@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package DatomicNet.Core.Tests;
+
+option csharp_namespace = "DatomicNet.Core.Tests";
+
+
+message TestAggregate {
+  uint64 id = 1;
+  uint32 categoryId = 2;
+  repeated TransactionCategory categories = 3;
+  string description = 7;
+  OtherThing otherThing = 9;
+}
+
+message TransactionCategory {
+  uint64 id = 1;
+  bool isGreat = 2;
+  string name = 3;
+}
+
+message OtherThing {
+  uint64 id = 1;
+  float h = 2;
+  float s = 3;
+  float v = 4;
+}
