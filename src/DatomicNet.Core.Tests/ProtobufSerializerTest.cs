@@ -11,6 +11,7 @@ using System.IO;
 using System.Reflection;
 using FluentAssertions;
 using Google.Protobuf;
+using Google.Protobuf.Reflection;
 
 namespace DatomicNet.Core.Tests
 {
@@ -101,7 +102,7 @@ namespace DatomicNet.Core.Tests
             //    _aggregateIdentity,
             //    _typeRegistry.IdByType[typeof(TestAggregate)],
             //    _aggregateIdentity,
-            //    (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.Id)}").FieldNumber,
+            //    (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.Id)}")).FieldNumber,
             //    0,
             //    BitConverter.GetBytes(_aggregateIdentity),
             //    _txId,
@@ -112,7 +113,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(TestAggregate)],
                 _aggregateIdentity,
-                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.CategoryId)}").FieldNumber,
+                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.CategoryId)}")).FieldNumber,
                 0,
                 BitConverter.GetBytes(_categoryId1),
                 _txId,
@@ -123,7 +124,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(TestAggregate)],
                 _aggregateIdentity,
-                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.CategoryId)}").FieldNumber,
+                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.CategoryId)}")).FieldNumber,
                 1,
                 BitConverter.GetBytes(_categoryId2),
                 _txId,
@@ -134,7 +135,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(TestAggregate)],
                 _aggregateIdentity,
-                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TestAggregate.OtherThing)}").FieldNumber,
+                (ushort)TestAggregate.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TestAggregate.OtherThing)}")).FieldNumber,
                 0,
                 BitConverter.GetBytes(_otherThingId),
                 _txId,
@@ -148,7 +149,7 @@ namespace DatomicNet.Core.Tests
             //    _aggregateIdentity,
             //    _typeRegistry.IdByType[typeof(TransactionCategory)],
             //    _categoryId1,
-            //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Id)}").FieldNumber,
+            //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Id)}")).FieldNumber,
             //    0,
             //    BitConverter.GetBytes(_categoryId1),
             //    _txId,
@@ -159,7 +160,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(TransactionCategory)],
                 _categoryId1,
-                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.IsGreat)}").FieldNumber,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.IsGreat)}")).FieldNumber,
                 0,
                 BitConverter.GetBytes(true),
                 _txId,
@@ -170,7 +171,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(TransactionCategory)],
                 _categoryId1,
-                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Name)}").FieldNumber,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Name)}")).FieldNumber,
                 0,
                 Encoding.UTF8.GetBytes("_categoryId1"),
                 _txId,
@@ -182,7 +183,7 @@ namespace DatomicNet.Core.Tests
             //    _aggregateIdentity,
             //    _typeRegistry.IdByType[typeof(TransactionCategory)],
             //    _categoryId2,
-            //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Id)}").FieldNumber,
+            //    (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Id)}")).FieldNumber,
             //    0,
             //    BitConverter.GetBytes(_categoryId2),
             //    _txId,
@@ -193,7 +194,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(TransactionCategory)],
                 _categoryId2,
-                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.IsGreat)}").FieldNumber,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.IsGreat)}")).FieldNumber,
                 0,
                 BitConverter.GetBytes(true),
                 _txId,
@@ -204,7 +205,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(TransactionCategory)],
                 _categoryId2,
-                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(TransactionCategory.Name)}").FieldNumber,
+                (ushort)TransactionCategory.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(TransactionCategory.Name)}")).FieldNumber,
                 0,
                 Encoding.UTF8.GetBytes("_categoryId2"),
                 _txId,
@@ -216,7 +217,7 @@ namespace DatomicNet.Core.Tests
             //    _aggregateIdentity,
             //    _typeRegistry.IdByType[typeof(OtherThing)],
             //    _otherThingId,
-            //    (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.Id)}").FieldNumber,
+            //    (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.Id)}")).FieldNumber,
             //    0,
             //    BitConverter.GetBytes(_otherThingId),
             //    _txId,
@@ -227,7 +228,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(OtherThing)],
                 _otherThingId,
-                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.H)}").FieldNumber,
+                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.H)}")).FieldNumber,
                 0,
                 BitConverter.GetBytes(0.1f),
                 _txId,
@@ -238,7 +239,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(OtherThing)],
                 _otherThingId,
-                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.S)}").FieldNumber,
+                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.S)}")).FieldNumber,
                 0,
                 BitConverter.GetBytes(0.2f),
                 _txId,
@@ -249,7 +250,7 @@ namespace DatomicNet.Core.Tests
                 _aggregateIdentity,
                 _typeRegistry.IdByType[typeof(OtherThing)],
                 _otherThingId,
-                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(x => x.Name == $"{nameof(OtherThing.V)}").FieldNumber,
+                (ushort)OtherThing.Descriptor.Fields.InFieldNumberOrder().First(Named($"{nameof(OtherThing.V)}")).FieldNumber,
                 0,
                 BitConverter.GetBytes(0.3f),
                 _txId,
@@ -257,6 +258,14 @@ namespace DatomicNet.Core.Tests
             );
         }
 
+        private Func<FieldDescriptor, bool> Named (string name)
+        {
+            return x =>
+            {
+                var titleCaseName = $"{x.Name.Substring(0, 1).ToUpper()}{x.Name.Substring(1)}";
+                return name == titleCaseName;
+            };
+        }
     }
 
     public class InitialSchema : ISchemaChange

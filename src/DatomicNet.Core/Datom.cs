@@ -10,15 +10,15 @@ namespace DatomicNet.Core
    
     public class Datom
     {
-        public readonly ushort AggregateType;
-        public readonly ulong AggregateIdentity;
-        public readonly ushort Type;
-        public readonly ulong Identity;
-        public readonly ushort Parameter;
-        public readonly uint ParameterIndex;
-        public readonly ulong TransactionId;
-        public readonly DatomAction Action;
-        public readonly byte[] Value;
+        public ushort AggregateType { get; }
+        public ulong AggregateIdentity { get; }
+        public ushort Type { get; }
+        public ulong Identity { get; }
+        public ushort Parameter { get; }
+        public uint ParameterIndex { get; }
+        public ulong TransactionId { get; }
+        public DatomAction Action { get; }
+        public byte[] Value { get; }
 
         public Datom(
                 ushort aggregateTypeId,

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
+using Google.Protobuf.Collections;
 using System.Linq.Expressions;
 
 namespace DatomicNet.Core
@@ -18,6 +19,8 @@ namespace DatomicNet.Core
         {
             _typeRegistry = typeRegistry;
             _primitiveSerializers = GetPrimitiveSerializers();
+            _serializers = new Dictionary<Type, MessageSerializer<object>>();
+            _singleMessageSerializers = new Dictionary<Type, SingleMessageSerializer>();
 
             var protobufMessageTypes = assemblies
                 .SelectMany(assembly => assembly.ExportedTypes.Where(type => typeof(IMessage).IsAssignableFrom(type)));
@@ -47,9 +50,9 @@ namespace DatomicNet.Core
 
         private readonly TypeRegistry _typeRegistry;
 
-        private Dictionary<Type, PrimitiveSerializer> _primitiveSerializers;
-        private Dictionary<Type, MessageSerializer<object>> _serializers;
-        private Dictionary<Type, SingleMessageSerializer> _singleMessageSerializers;
+        private Dictionary<Type, PrimitiveSerializer> _primitiveSerializers { get; }
+        private Dictionary<Type, MessageSerializer<object>> _serializers { get; }
+        private Dictionary<Type, SingleMessageSerializer> _singleMessageSerializers { get; }
         //// is this faster than Dictionary<Type, MessageSerializer>
         //private static class MessageSerializer<T>
         //{
@@ -88,7 +91,7 @@ namespace DatomicNet.Core
                                 var referencedType = types[reference.ReferencedType];
                                 if (referencedType.ContainsKey(reference.ReferencedIdentity))
                                 {
-                                    reference.Setter(instanceKeyValue.Value.Message, referencedType[reference.ReferencedIdentity]);
+                                    reference.Setter((IMessage)instanceKeyValue.Value.Message, (object)referencedType[reference.ReferencedIdentity].Message);
                                 }
                             }
                         }
@@ -132,14 +135,15 @@ namespace DatomicNet.Core
 
             var orderedDatomsParameter = Expression.Parameter(typeof(Datom[]), "orderedDatoms");
             var fields = descriptor.Fields.InFieldNumberOrder();
-            var datomValueMember = typeof(Datom).GetProperty($"{nameof(Datom.Value)}", BindingFlags.Public);
+            var datomValueMember = typeof(Datom).GetProperty($"{nameof(Datom.Value)}");
 
             var fieldIndexByFieldNumber = fields
                 .Select((field, fieldIndex) => new KeyValuePair<int, int>(field.FieldNumber, fieldIndex))
                 .ToDictionary(x => x.Key, x => x.Value);
 
             var memberMaps = fields.Select((field, fieldIndex) => {
-                var property = messageType.GetProperty(field.Name, BindingFlags.Public | BindingFlags.Instance);
+                var titleCaseName = $"{field.Name.Substring(0, 1).ToUpper()}{field.Name.Substring(1)}";
+                var property = messageType.GetProperty(titleCaseName);
                 
                 Expression getValue;
                 if(_primitiveSerializers.ContainsKey(property.PropertyType))
@@ -150,12 +154,16 @@ namespace DatomicNet.Core
                     getValue = Expression.Condition(
                         Expression.NotEqual(Expression.Constant(null), getValueBytes),
                         _primitiveSerializers[property.PropertyType].GetDeserializeExpression(getValueBytes),
-                        Expression.Constant(Activator.CreateInstance(property.PropertyType))
+                        Expression.Constant(CreateInstance(property.PropertyType))
                     );
                 }
                 else if(typeof(IMessage).IsAssignableFrom(property.PropertyType))
                 {
-                    getValue = Expression.Constant(null, property.PropertyType);
+                    return null;
+                }
+                else if (property.PropertyType.GetGenericTypeDefinition() == typeof(RepeatedField<>))
+                {
+                    return null;
                 }
                 else
                 {
@@ -163,26 +171,38 @@ namespace DatomicNet.Core
                 }
 
                 return Expression.Bind(property, getValue);
-            }).ToArray();
+            }).Where(x => x != null).ToArray();
 
             var constructInstance = Expression.New(messageType.GetConstructors().First());
             var createAndAssign = Expression.MemberInit(constructInstance, memberMaps);
+            var createAndAssignAsIMessage = Expression.Convert(createAndAssign, typeof(IMessage));
 
             var fieldsCount = fields.Count();
-            var lambdaExpression = Expression.Lambda<Func<Datom[], IMessage>>(createAndAssign, orderedDatomsParameter);
+
+            var exception = Expression.Parameter(typeof(Exception));
+            var logExceptionMethod = typeof(ProtobufDatomSerializer).GetMethod("LogException");
+            var logException = Expression.Call(Expression.Constant(this), logExceptionMethod, exception);
+            var logError = Expression.Catch(exception, Expression.Block(logException, Expression.Convert(constructInstance, typeof(IMessage))));
+            var tryCatchExpression = Expression.TryCatch(createAndAssignAsIMessage, logError);
+
+            var lambdaExpression = Expression.Lambda<Func<Datom[], IMessage>>(tryCatchExpression, orderedDatomsParameter);
+
             var compiledExpression = lambdaExpression.Compile();
 
             var idGetter = fields.First();
-            var refsGetters = fields.Select(field =>
+            var referenceGetterByFieldIndex = fields.Select(field =>
             {
-                var property = messageType.GetProperty(field.Name, BindingFlags.Public | BindingFlags.Instance);
+                var titleCaseName = $"{field.Name.Substring(0, 1).ToUpper()}{field.Name.Substring(1)}";
+                var property = messageType.GetProperty(titleCaseName);
                 if (typeof(IMessage).IsAssignableFrom(property.PropertyType))
                 {
                     var referencedTypeId = _typeRegistry.IdByType[property.PropertyType];
-                    var messageParam = Expression.Parameter(messageType, "message");
-                    var valueProperty = Expression.Property(messageParam, property);
-                    var valueParam = Expression.Parameter(property.PropertyType, "referencedValue");
-                    var setValue = Expression.Assign(valueProperty, valueParam);
+                    var messageParam = Expression.Parameter(typeof(IMessage), "message");
+                    var messageParamAsType = Expression.Convert(messageParam, messageType);
+                    var valueProperty = Expression.Property(messageParamAsType, property);
+                    var valueParam = Expression.Parameter(typeof(object), "referencedValue");
+                    var valueParamAsType = Expression.Convert(valueParam, property.PropertyType);
+                    var setValue = Expression.Assign(valueProperty, valueParamAsType);
                     var setValueLambda = Expression.Lambda<Action<IMessage, object>>(setValue, messageParam, valueParam);
                     var setValueCompiled = setValueLambda.Compile();
 
@@ -202,7 +222,6 @@ namespace DatomicNet.Core
                 }
                 return null;
             })
-            .Where(x => x != null)
             .ToArray();
 
             return (datoms) => {
@@ -212,7 +231,7 @@ namespace DatomicNet.Core
                 {
                     var fieldIndex = fieldIndexByFieldNumber[datom.Parameter];
                     var preExisting = orderedDatoms[fieldIndex];
-                    if (preExisting != null && preExisting.TransactionId < datom.TransactionId)
+                    if (preExisting == null || preExisting.TransactionId < datom.TransactionId)
                     {
                         orderedDatoms[fieldIndex] = datom;
                     }
@@ -221,7 +240,7 @@ namespace DatomicNet.Core
                 return new SingleMessage()
                 {
                     Message = compiledExpression(orderedDatoms),
-                    References = orderedDatoms.Select((datom, id) => refsGetters[id](datom)).Where(x => x != null).ToList()
+                    References = orderedDatoms.Select((datom, id) => referenceGetterByFieldIndex[id] != null ? referenceGetterByFieldIndex[id](datom) : null).Where(x => x != null).ToList()
                 };
             };
         }
@@ -311,23 +330,38 @@ namespace DatomicNet.Core
                 type,
                 new PrimitiveSerializer()
                 {
-                    GetDeserializeExpression = (param) => Expression.Call(
-                        typeof(BitConverter)
-                        .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                        .First(x => {
-                            var parameters = x.GetParameters();
-                            return parameters.Count() == 2 && parameters[0].ParameterType == type && parameters[1].ParameterType == typeof(int);
-                        }),
-                        param, Expression.Constant(0)
-                    ),
-                    GetSerializeExpression = (param) => Expression.Call(
-                        typeof(BitConverter)
-                        .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                        .First(x => x.Name == $"{nameof(BitConverter.GetBytes)}" && x.GetParameters()[0].ParameterType == type),
-                        param
-                    ),
+                    GetDeserializeExpression = (param) => {
+                        return Expression.Call(
+                            typeof(BitConverter)
+                            .GetMethods()
+                            .First(x => x.GetParameters().Count() == 2 && x.ReturnType == type),
+                            param, Expression.Constant(0)
+                        );
+                    },
+                    GetSerializeExpression = (param) => {
+                        return Expression.Call(
+                            typeof(BitConverter)
+                            .GetMethods()
+                            .First(x => x.Name == $"{nameof(BitConverter.GetBytes)}" && x.GetParameters()[0].ParameterType == type),
+                            param
+                        );
+                    },
                 }
             );
+        }
+
+        private object CreateInstance(Type type)
+        {
+            if(type == typeof(string))
+            {
+                return string.Empty;
+            }
+            return Activator.CreateInstance(type);
+        }
+
+        public void LogException(Exception ex)
+        {
+            System.Console.WriteLine(ex.Message + "\r\n" + ex.StackTrace);
         }
     }
 
