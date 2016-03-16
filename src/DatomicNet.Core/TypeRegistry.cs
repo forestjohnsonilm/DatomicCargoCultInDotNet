@@ -148,10 +148,17 @@ namespace DatomicNet.Core
         {
             var type = typeof(T);
             var keyedRegistrationInfo = registrationInfo as TypeRegistration<T>;
-            Func<ParameterExpression, Expression> keyGetterExpressionBuilder;
-            Func<ParameterExpression, Expression> factoryExpressionBuilder;
+            Func<Expression, Expression> keyGetterExpressionBuilder;
+            Func<Expression, Expression> factoryExpressionBuilder;
+            MemberInfo keyMember = registrationInfo.KeyMember;
             if (keyedRegistrationInfo != null)
             {
+                if(keyMember == null || keyedRegistrationInfo.KeyGetterExpressionBuilder == null || keyedRegistrationInfo.FactoryExpressionBuilder == null)
+                {
+                    throw new InvalidOperationException($"If you provide a custom {nameof(TypeRegistration<int>.KeyGetterExpressionBuilder)} "
+                        + $"or {nameof(TypeRegistration<int>.KeyGetterExpressionBuilder)}, you must include both, as well as "
+                        + $"the {nameof(TypeRegistration<int>.KeyMember)} parameter.");
+                }
                 keyGetterExpressionBuilder = keyedRegistrationInfo.KeyGetterExpressionBuilder;
                 factoryExpressionBuilder = keyedRegistrationInfo.FactoryExpressionBuilder;
             } 
@@ -160,11 +167,11 @@ namespace DatomicNet.Core
                 try
                 {
                     var constructor = type.GetConstructors().First(x => x.GetParameters().Count() == 0);
-                    var memberInfo = type.GetProperty("Id");
+                    keyMember = keyMember != null ? keyMember : (MemberInfo)type.GetProperty("Id");
                     var constructInstance = Expression.New(constructor);
 
                     keyGetterExpressionBuilder = (parameter) => Expression.PropertyOrField(parameter, "Id");
-                    factoryExpressionBuilder = (parameter) => Expression.MemberInit(constructInstance, Expression.Bind(memberInfo, parameter));
+                    factoryExpressionBuilder = (parameter) => Expression.MemberInit(constructInstance, Expression.Bind(keyMember, parameter));
                 }
                 catch (Exception ex)
                 {
@@ -181,6 +188,7 @@ namespace DatomicNet.Core
                 Type = type,
                 TypeId = registrationInfo.TypeId,
                 AggregateId = registrationInfo.AggregateId,
+                KeyMember = keyMember,
                 KeyGetterExpressionBuilder = keyGetterExpressionBuilder,
                 FactoryExpressionBuilder = factoryExpressionBuilder,
             };
@@ -203,6 +211,7 @@ namespace DatomicNet.Core
         public Type Type { get; set; }
         public ushort TypeId { get; set; }
         public ushort? AggregateId { get; set; }
+        public MemberInfo KeyMember { get; set; }
     }
 
     public class TypeRegistration<T> : BaseTypeRegistration

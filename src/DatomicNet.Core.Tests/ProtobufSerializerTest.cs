@@ -48,12 +48,19 @@ namespace DatomicNet.Core.Tests
         {
             var example = GetTestAggregate();
 
-            var result = _datomSerializer.Serialize(example);
+            var result = _datomSerializer.Serialize(example).ToList();
 
-            result.ShouldBeEquivalentTo(GetTestDatoms());
+            var datoms = GetTestDatoms();
+
+            var resultString = string.Join("\n", result.Select(_datomSerializer.DebugFormatDatom));
+            var datomsString = string.Join("\n", datoms.Select(_datomSerializer.DebugFormatDatom));
+
+            result.ShouldBeEquivalentTo(datoms);
         }
 
-        //message TestAggregate {
+        #region proto schema comment
+        //(1)
+        //message TestAggregate { 
         //  uint64 id = 1;
         //  uint32 categoryId = 2;
         //  repeated TransactionCategory categories = 3;
@@ -61,19 +68,23 @@ namespace DatomicNet.Core.Tests
         //  OtherThing otherThing = 9;
         //}
 
+        //(2)
         //message TransactionCategory {
         //  uint64 id = 1;
         //  bool isGreat = 2;
         //  string name = 3;
         //}
 
+        //(3)
         //message OtherThing {
         //  uint64 id = 1;
         //  float h = 2;
         //  float s = 3;
         //  float v = 4;
         //}
+        #endregion
 
+        #region Test Data
         private TestAggregate GetTestAggregate()
         {
             var toReturn = new TestAggregate()
@@ -266,6 +277,8 @@ namespace DatomicNet.Core.Tests
                 DatomAction.Assertion
             );
         }
+
+        #endregion
 
         private Func<FieldDescriptor, bool> Named (string name)
         {
