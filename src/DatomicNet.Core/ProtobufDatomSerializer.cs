@@ -121,7 +121,7 @@ namespace DatomicNet.Core
             {
                 var types = GetMessageBuildersByTypeAndIdentity(datoms);
 
-                var returnTypeId = MessageTypeHandlers<T>.Value.TypeId;
+                var returnTypeId = MessageTypeHandlers<T>.Value.TypeRegistration.TypeId;
                 if (types.ContainsKey(returnTypeId))
                 {
                     return types[returnTypeId].Select(x => (T)x.Value.Message);
@@ -146,12 +146,56 @@ namespace DatomicNet.Core
 
         public IEnumerable<Datom> Serialize<T>(T @object)
         {
-            throw new NotImplementedException();
+            return SerializeRecurse(@object, new SerializationSettings(), new HashSet<Reference>());
+        }
+        #endregion
+
+        #region Serialization private methods
+
+        private IEnumerable<Datom> SerializeRecurse<T>(T @object, SerializationSettings settings, HashSet<Reference> visited)
+        {
+            var typeHandler = MessageTypeHandlers<T>.Value;
+            var typeId = typeHandler.TypeRegistration.TypeId;
+            var identity = typeHandler.TypeRegistration.KeyGetter(@object);
+            var reference = new Reference() { Type = typeId, Identity = identity };
+            if (!visited.Contains(reference))
+            {
+                visited.Add(reference);
+
+                var prototype = new Datom
+                    (
+                        settings.AggregateType,
+                        settings.AggregateId,
+                        typeId,
+                        identity,
+                        0,
+                        0,
+                        new byte[0],
+                        1,
+                        settings.Action
+                    );
+
+                typeHandler.FieldsByParameterNumber
+                    .Where(x => x.Value.GetFieldClass() == FieldClass.Simple)
+                    .SelectMany(x => ((SimpleField<T>)x.Value).Serialize(@object, prototype))
+                    .Concat(
+                        typeHandler.FieldsByParameterNumber
+                        .Where(x => x.Value.GetFieldClass() == FieldClass.Reference)
+                        .SelectMany(x => {
+                            var referenceField = ((ReferenceField<T>)x.Value);
+                            var serialized = referenceField.Serialize(@object, prototype);
+                            //var referenced = referenceField.FollowReference();
+                            // FollowReference() should return a TReference not an object -- refactor.
+                            //if (referenced != null)
+                        })
+                    );
+            }
+
         }
 
         #endregion
 
-        #region Deserialization functions
+        #region Deserialization private methods
 
         private Dictionary<ushort, Dictionary<ulong, MessageBuilder>> GetMessageBuildersByTypeAndIdentity(IEnumerable<Datom> datoms)
         {
@@ -211,7 +255,7 @@ namespace DatomicNet.Core
         private MessageBuilder GetMessageBuilder<T> (MessageTypeHandler<T> messageTypeHandler, IGrouping<ulong, Datom> datoms)
         {
             var messageBuilder = new MessageBuilder();
-            messageBuilder.Message = messageTypeHandler.Factory(datoms.Key);
+            messageBuilder.Message = messageTypeHandler.TypeRegistration.Factory(datoms.Key);
 
             datoms.GroupBy(y => new ParameterWithArrayIndex()
             {
@@ -263,8 +307,7 @@ namespace DatomicNet.Core
 
             return new MessageTypeHandler<T>()
             {
-                TypeId = typeRegistration.TypeId,
-                Factory = typeRegistration.Factory,
+                TypeRegistration = typeRegistration,
                 FieldsByParameterNumber = fields.Select(FieldHandlerBuilder(typeRegistration)).ToDictionary(x => x.Key, x => x.Value)
             };
         }
@@ -530,15 +573,14 @@ namespace DatomicNet.Core
 
         private class MessageTypeHandler<T>
         {
-            public ushort TypeId;
+            public TypeRegistration<T> TypeRegistration;
             public Dictionary<ushort, FieldHandler> FieldsByParameterNumber;
-            public Func<ulong, T> Factory;
         }
 
         private enum FieldClass
         {
             Simple = 0,
-            Repeated = 1
+            Reference = 1
         }
 
         private class FieldHandlerDefinition
@@ -562,13 +604,13 @@ namespace DatomicNet.Core
         {
             public override FieldClass GetFieldClass() => FieldClass.Simple;
             public Action<T, Datom> Deserialize;
-            public Func<T, IEnumerable<Datom>> Serialize;
+            public Func<T, Datom, IEnumerable<Datom>> Serialize;
         }
 
         private class ReferenceField<T> : FieldHandler
         {
-            public override FieldClass GetFieldClass() => FieldClass.Repeated;
-            public Func<T, IEnumerable<Datom>> Serialize;
+            public override FieldClass GetFieldClass() => FieldClass.Reference;
+            public Func<T, Datom, IEnumerable<Datom>> Serialize;
             public ushort ReferencedTypeId;
             public Func<Datom, ulong> GetReferencedIdentity;
             public Action<T, int, object> SetReference;
@@ -599,6 +641,13 @@ namespace DatomicNet.Core
         {
             public ushort Parameter;
             public uint ParameterArrayIndex;
+        }
+
+        private class SerializationSettings
+        {
+            public ushort AggregateType;
+            public ulong AggregateId;
+            public DatomAction Action = DatomAction.Assertion;
         }
         #endregion
     }
