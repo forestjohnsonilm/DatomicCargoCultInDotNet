@@ -28,6 +28,9 @@ namespace DatomicNet.Core
         private delegate void WireUpReferencesForTypeDelegate(Dictionary<ushort, Dictionary<ulong, MessageBuilder>> types);
         private Dictionary<ushort, WireUpReferencesForTypeDelegate> _wireUpReferencesForTypeByTypeRegistryTypeId;
 
+        private delegate IEnumerable<Datom> SerializeRecurseDelegate(object @object, SerializationSettings settings, HashSet<Reference> visited);
+        private Dictionary<ushort, SerializeRecurseDelegate> _serializeRecurseForTypeByTypeRegistryTypeId;
+
         private Dictionary<Type, PrimitiveSerializer> _primitiveSerializers { get; }
 
         private BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
@@ -74,43 +77,11 @@ namespace DatomicNet.Core
                 _getMessageBuildersForTypeByTypeRegistryTypeId.Add(typeRegistration.TypeId, GetGetMessageBuildersByTypeDelegate(messageType));
 
                 _wireUpReferencesForTypeByTypeRegistryTypeId.Add(typeRegistration.TypeId, GetWireUpReferencesForTypeAction(messageType, typeRegistration.TypeId));
+
+                _serializeRecurseForTypeByTypeRegistryTypeId.Add(typeRegistration.TypeId, GetSerializeRecurseForType(messageType, typeRegistration.TypeId));
             }
         }
 
-        private WireUpReferencesForTypeDelegate GetWireUpReferencesForTypeAction(Type messageType, ushort typeRegistryTypeId)
-        {
-            var reflectedMethod = typeof(ProtobufDatomSerializer)
-                    .GetMethod($"{nameof(ProtobufDatomSerializer.WireUpReferencesForType)}", PrivateInstance)
-                    .MakeGenericMethod(messageType);
-            var typesParameter = Expression.Parameter(typeof(Dictionary<ushort, Dictionary<ulong, MessageBuilder>>), "types");
-            var callExpression = Expression.Call(
-                    Expression.Constant(this),
-                    reflectedMethod,
-                    Expression.Constant(typeRegistryTypeId),
-                    typesParameter
-                );
-            return Expression.Lambda(typeof(WireUpReferencesForTypeDelegate), callExpression, typesParameter).Compile() as WireUpReferencesForTypeDelegate;
-        }
-
-        private GetMessageBuildersByTypeDelegate GetGetMessageBuildersByTypeDelegate(Type messageType)
-        {
-            var reflectedMethod = typeof(ProtobufDatomSerializer)
-                    .GetMethod($"{nameof(ProtobufDatomSerializer.GetMessageBuildersForType)}", PrivateInstance)
-                    .MakeGenericMethod(messageType);
-            var datomsParameter = Expression.Parameter(typeof(IGrouping<ushort, Datom>), "datoms");
-            var callExpression = Expression.Call(
-                    Expression.Constant(this),
-                    reflectedMethod,
-                    datomsParameter
-                );
-            var callAndCastToObject = Expression.Convert(callExpression, typeof(Dictionary<ulong, MessageBuilder>));
-
-            return Expression.Lambda(
-                typeof(GetMessageBuildersByTypeDelegate),
-                callAndCastToObject,
-                datomsParameter
-            ).Compile() as GetMessageBuildersByTypeDelegate;
-        }
 
         #endregion
 
@@ -141,7 +112,10 @@ namespace DatomicNet.Core
 
         public IEnumerable<Datom> Serialize<T>(IEnumerable<T> objects)
         {
-            throw new NotImplementedException();
+            var visited = new HashSet<Reference>();
+            var settings = new SerializationSettings();
+
+            return objects.SelectMany(x => SerializeRecurse(x, settings, visited));
         }
 
         public IEnumerable<Datom> Serialize<T>(T @object)
@@ -156,7 +130,7 @@ namespace DatomicNet.Core
         {
             var typeHandler = MessageTypeHandlers<T>.Value;
             var typeId = typeHandler.TypeRegistration.TypeId;
-            var identity = typeHandler.TypeRegistration.KeyGetter(@object);
+            var identity = typeHandler.KeyGetter(@object);
             var reference = new Reference() { Type = typeId, Identity = identity };
             if (!visited.Contains(reference))
             {
@@ -171,11 +145,11 @@ namespace DatomicNet.Core
                         0,
                         0,
                         new byte[0],
-                        1,
+                        settings.TransactionId,
                         settings.Action
                     );
 
-                typeHandler.FieldsByParameterNumber
+                return typeHandler.FieldsByParameterNumber
                     .Where(x => x.Value.GetFieldClass() == FieldClass.Simple)
                     .SelectMany(x => ((SimpleField<T>)x.Value).Serialize(@object, prototype))
                     .Concat(
@@ -183,14 +157,19 @@ namespace DatomicNet.Core
                         .Where(x => x.Value.GetFieldClass() == FieldClass.Reference)
                         .SelectMany(x => {
                             var referenceField = ((ReferenceField<T>)x.Value);
-                            var serialized = referenceField.Serialize(@object, prototype);
-                            //var referenced = referenceField.FollowReference();
-                            // FollowReference() should return a TReference not an object -- refactor.
-                            //if (referenced != null)
+                            var recurse = _serializeRecurseForTypeByTypeRegistryTypeId[referenceField.ReferencedTypeId];
+                            return referenceField.Serialize(@object, prototype)
+                                .Concat(
+                                    referenceField.Follow(@object)
+                                    .SelectMany(referenced => recurse(referenced, settings, visited))
+                                );
                         })
                     );
+            } 
+            else
+            {
+                return Enumerable.Empty<Datom>();
             }
-
         }
 
         #endregion
@@ -255,7 +234,7 @@ namespace DatomicNet.Core
         private MessageBuilder GetMessageBuilder<T> (MessageTypeHandler<T> messageTypeHandler, IGrouping<ulong, Datom> datoms)
         {
             var messageBuilder = new MessageBuilder();
-            messageBuilder.Message = messageTypeHandler.TypeRegistration.Factory(datoms.Key);
+            messageBuilder.Message = messageTypeHandler.Factory(datoms.Key);
 
             datoms.GroupBy(y => new ParameterWithArrayIndex()
             {
@@ -277,7 +256,7 @@ namespace DatomicNet.Core
                     messageBuilder.References.Add(new ReferenceFromBuilder() {
                         Parameter = x.Parameter,
                         ReferencedTypeId = referenceFieldHandler.ReferencedTypeId,
-                        ReferencedIdentity = referenceFieldHandler.GetReferencedIdentity(x),
+                        ReferencedIdentity = referenceFieldHandler.DeserializeIdentity(x),
                         RepeatedFieldIndex = x.ParameterArrayIndex,
                     }); 
                 }
@@ -288,7 +267,7 @@ namespace DatomicNet.Core
 
         #endregion
 
-        #region building MessageTypeHandlers with Reflection and Expression trees
+        #region building MessageTypeHandlers 
 
         private MessageTypeHandler<T> BuildMessageTypeHandler<T>(BaseTypeRegistration baseTypeRegistration)
         {
@@ -305,9 +284,16 @@ namespace DatomicNet.Core
                 .Select((field) => new KeyValuePair<int, FieldDescriptor>(field.FieldNumber, field))
                 .ToDictionary(x => x.Key, x => x.Value);
 
+            var idParameter = Expression.Parameter(typeof(ulong), "identity");
+            var entityParameter = Expression.Parameter(messageType, "entity");
+            var factory = Expression.Lambda<Func<ulong, T>>(typeRegistration.FactoryExpressionBuilder(idParameter), idParameter).Compile();
+            var keyGetter = Expression.Lambda<Func<T, ulong>>(typeRegistration.KeyGetterExpressionBuilder(entityParameter), entityParameter).Compile();
+
             return new MessageTypeHandler<T>()
             {
                 TypeRegistration = typeRegistration,
+                Factory = factory,
+                KeyGetter = keyGetter,
                 FieldsByParameterNumber = fields.Select(FieldHandlerBuilder(typeRegistration)).ToDictionary(x => x.Key, x => x.Value)
             };
         }
@@ -345,7 +331,8 @@ namespace DatomicNet.Core
 
                 var definition = new FieldHandlerDefinition()
                 {
-                    TypeRegistration = typeRegistration,
+                    FieldDescriptor = discriptor,
+                    MessageTypeRegistration = typeRegistration,
                     Property = property,
                     MessageType = messageType,
                     PropertyOuterType = propertyOuterType,
@@ -378,11 +365,12 @@ namespace DatomicNet.Core
 
         private ReferenceField<T> BuildReferenceField<T>(FieldHandlerDefinition definition) {
             var toReturn = new ReferenceField<T>();
-            var messageTypeParameter = Expression.Parameter(definition.MessageType, "message");
-            var fieldOnMessage = Expression.Property(messageTypeParameter, definition.Property);
+            var messageParameter = Expression.Parameter(definition.MessageType, "message");
+            var fieldOnMessage = Expression.Property(messageParameter, definition.Property);
             var repeatedFieldIndexParameter = Expression.Parameter(typeof(int), "repeatedFieldIndex");
             var referencedObjectParameter = Expression.Parameter(typeof(object), "referencedObject");
             var referencedObjectCasted = Expression.Convert(referencedObjectParameter, definition.PropertyType);
+
             if (definition.IsRepeated)
             {
                 var insertIntoRepeatedFieldMethod = definition.PropertyOuterType.GetMethod($"{nameof(RepeatedField<bool>.Insert)}");
@@ -394,30 +382,44 @@ namespace DatomicNet.Core
                     );
                 var insertFunction = Expression.Lambda<Action<T, int, object>>(
                         insertExpression, 
-                        messageTypeParameter,
+                        messageParameter,
                         repeatedFieldIndexParameter,
                         referencedObjectParameter
                     ).Compile();
                 toReturn.SetReference = insertFunction;
+
+                var fieldOnMessageAsIEnumerableObject = Expression.Convert(fieldOnMessage, typeof(IEnumerable<object>));
+                toReturn.Follow = Expression.Lambda<Func<T, IEnumerable<object>>>(fieldOnMessageAsIEnumerableObject, messageParameter).Compile();
+
+                toReturn.Serialize = BuildSerializeFunction<T>(definition);
             }
             else
             {
                 var setFieldExpression = Expression.Assign(fieldOnMessage, referencedObjectCasted);
                 var setFieldFunction = Expression.Lambda<Action<T, int, object>>(
                         setFieldExpression,
-                        messageTypeParameter,
+                        messageParameter,
                         repeatedFieldIndexParameter,
                         referencedObjectParameter
                     ).Compile();
                 toReturn.SetReference = setFieldFunction;
+
+                var yieldMethod = typeof(ProtobufDatomSerializer)
+                    .GetMethod($"{nameof(ProtobufDatomSerializer.Yield)}")
+                    .MakeGenericMethod(typeof(object));
+
+                var yieldReferencedObject = Expression.Call(yieldMethod, referencedObjectParameter);
+                toReturn.Follow = Expression.Lambda<Func<T, IEnumerable<object>>>(yieldReferencedObject, messageParameter).Compile();
+
+                toReturn.Serialize = BuildSerializeFunction<T>(definition);
             }
 
             //var datomParameter = Expression.Parameter(typeof(Datom), "datom");
             //var datomValueAccess = Expression.Property(datomParameter, $"{nameof(Datom.Value)}");
             //var convertToULongMethod = typeof(BitConverter).GetMethod($"{nameof(BitConverter.ToUInt64)}");
             //var getReferencedId = Expression.Call(convertToULongMethod, datomValueAccess, Expression.Constant(0));
-            //toReturn.GetReferencedIdentity = Expression.Lambda<Func<Datom, ulong>>(getReferencedId, datomParameter).Compile();
-            toReturn.GetReferencedIdentity = (datom) => BitConverter.ToUInt64(datom.Value, 0);
+            //toReturn.DeserializeIdentity = Expression.Lambda<Func<Datom, ulong>>(getReferencedId, datomParameter).Compile();
+            toReturn.DeserializeIdentity = (datom) => BitConverter.ToUInt64(datom.Value, 0);
             if(!_typeRegistry.IsTypeRegistered(definition.PropertyType))
             {
                 throw new InvalidOperationException($"Unable to create reference {definition.MessageType.FullName}.{definition.Property.Name}"
@@ -451,6 +453,7 @@ namespace DatomicNet.Core
                         datomParameter
                     ).Compile();
                 toReturn.Deserialize = insertFunction;
+                toReturn.Serialize = BuildSerializeFunction<T>(definition);
             }
             else
             {
@@ -462,13 +465,145 @@ namespace DatomicNet.Core
                         datomParameter
                     ).Compile();
                 toReturn.Deserialize = setFieldFunction;
+                toReturn.Serialize = BuildSerializeFunction<T>(definition);
             }
 
             return toReturn;
         }
+
+        private Func<T, Datom, IEnumerable<Datom>> BuildSerializeFunction<T>(FieldHandlerDefinition definition)
+        {
+            var messageParameter = Expression.Parameter(definition.MessageType, "message");
+            var prototypeParameter = Expression.Parameter(typeof(Datom), "prototype");
+
+            var fieldOnMessage = Expression.Property(messageParameter, definition.Property);
+
+            var datomConstructor = typeof(Datom).GetConstructors().OrderByDescending(x => x.GetParameters().Count()).First();
+
+            var messageTypeRegistrationType = typeof(TypeRegistration<>).MakeGenericType(definition.MessageType);
+
+            var messageIdGetterExpressionBuilder = (Func<ParameterExpression, Expression>)messageTypeRegistrationType
+                .GetField($"{nameof(TypeRegistration<int>.KeyGetterExpressionBuilder)}")
+                .GetValue(definition.MessageTypeRegistration);
+
+            var arrayElementParameter = Expression.Parameter(definition.PropertyType, "element");
+            var arrayIndexParameter = Expression.Parameter(typeof(int), "i");
+
+            var parameterIndexExpression = definition.IsRepeated ? (Expression)arrayIndexParameter : (Expression)Expression.Constant(0);
+            var referencedObjectExpression = definition.IsRepeated ? (Expression)arrayElementParameter : (Expression)fieldOnMessage;
+            Expression valueExpression;
+            if(definition.IsReference)
+            {
+                var propertyTypeRegistration = (TypeRegistration<T>)_typeRegistry.TypeRegistrationByType(definition.PropertyType);
+                valueExpression = propertyTypeRegistration.KeyGetterExpressionBuilder(referencedObjectExpression);
+            } 
+            else
+            {
+                valueExpression = definition.PrimitiveSerializer.GetSerializeExpression(referencedObjectExpression);
+            }
+
+            var constructInstance = Expression.New(
+                datomConstructor,
+                Expression.Property(prototypeParameter, $"{nameof(Datom.AggregateType)}"),
+                Expression.Property(prototypeParameter, $"{nameof(Datom.AggregateIdentity)}"),
+                Expression.Constant(definition.MessageTypeRegistration.TypeId),
+                messageIdGetterExpressionBuilder(messageParameter),
+                Expression.Constant(definition.FieldDescriptor.FieldNumber),
+                parameterIndexExpression,
+                valueExpression,
+                Expression.Property(prototypeParameter, $"{nameof(Datom.TransactionId)}"),
+                Expression.Property(prototypeParameter, $"{nameof(Datom.Action)}")
+            );
+
+            var mapper = Expression.Lambda<Func<T, int, Datom>>(constructInstance, arrayElementParameter, arrayIndexParameter);
+
+            //public static IEnumerable<TResult> Select<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, int, TResult> selector);
+            var selectMethod = typeof(Enumerable).GetMethods()
+                .First(x => x.Name == $"{nameof(Enumerable.Select)}" && x.GetParameters()[1].ParameterType.GetGenericArguments().Length == 3);
+
+            var yieldMethod = typeof(ProtobufDatomSerializer)
+                .GetMethod($"{nameof(ProtobufDatomSerializer.Yield)}")
+                .MakeGenericMethod(typeof(Datom));
+
+            var serializeExpressionForSingle = Expression.Call(yieldMethod, constructInstance);
+
+            var iEnumerableType = typeof(IEnumerable<>).MakeGenericType(definition.PropertyType);
+            var fieldOnMessageAsIEnumerable = Expression.Convert(fieldOnMessage, iEnumerableType);
+            var serializeExpressionForRepeated = Expression.Call(selectMethod, fieldOnMessageAsIEnumerable, mapper);
+
+            return Expression.Lambda<Func<T, Datom, IEnumerable<Datom>>>(
+                definition.IsRepeated ? serializeExpressionForRepeated : serializeExpressionForSingle,
+                messageParameter,
+                prototypeParameter
+            ).Compile();
+        }
+
         #endregion
 
         #region Helper functions
+
+        private SerializeRecurseDelegate GetSerializeRecurseForType(Type messageType, ushort typeRegistryTypeId)
+        {
+            var reflectedMethod = typeof(ProtobufDatomSerializer)
+                    .GetMethod($"{nameof(ProtobufDatomSerializer.SerializeRecurse)}", PrivateInstance)
+                    .MakeGenericMethod(messageType);
+
+            var objectParameter = Expression.Parameter(typeof(object), "@object");
+            var castedObjectParameter = Expression.Convert(objectParameter, messageType);
+            var settingsParameter = Expression.Parameter(typeof(SerializationSettings), "settings");
+            var visitedParameter = Expression.Parameter(typeof(HashSet<Reference>), "visited");
+
+            var callExpression = Expression.Call(
+                    Expression.Constant(this),
+                    reflectedMethod,
+                    castedObjectParameter,
+                    settingsParameter,
+                    visitedParameter
+                );
+            return Expression.Lambda(
+                typeof(SerializeRecurseDelegate),
+                callExpression,
+                objectParameter,
+                settingsParameter,
+                visitedParameter
+            ).Compile() as SerializeRecurseDelegate;
+        }
+
+        private WireUpReferencesForTypeDelegate GetWireUpReferencesForTypeAction(Type messageType, ushort typeRegistryTypeId)
+        {
+            var reflectedMethod = typeof(ProtobufDatomSerializer)
+                    .GetMethod($"{nameof(ProtobufDatomSerializer.WireUpReferencesForType)}", PrivateInstance)
+                    .MakeGenericMethod(messageType);
+            var typesParameter = Expression.Parameter(typeof(Dictionary<ushort, Dictionary<ulong, MessageBuilder>>), "types");
+            var callExpression = Expression.Call(
+                    Expression.Constant(this),
+                    reflectedMethod,
+                    Expression.Constant(typeRegistryTypeId),
+                    typesParameter
+                );
+            return Expression.Lambda(typeof(WireUpReferencesForTypeDelegate), callExpression, typesParameter).Compile() as WireUpReferencesForTypeDelegate;
+        }
+
+        private GetMessageBuildersByTypeDelegate GetGetMessageBuildersByTypeDelegate(Type messageType)
+        {
+            var reflectedMethod = typeof(ProtobufDatomSerializer)
+                    .GetMethod($"{nameof(ProtobufDatomSerializer.GetMessageBuildersForType)}", PrivateInstance)
+                    .MakeGenericMethod(messageType);
+            var datomsParameter = Expression.Parameter(typeof(IGrouping<ushort, Datom>), "datoms");
+            var callExpression = Expression.Call(
+                    Expression.Constant(this),
+                    reflectedMethod,
+                    datomsParameter
+                );
+            var callAndCastToObject = Expression.Convert(callExpression, typeof(Dictionary<ulong, MessageBuilder>));
+
+            return Expression.Lambda(
+                typeof(GetMessageBuildersByTypeDelegate),
+                callAndCastToObject,
+                datomsParameter
+            ).Compile() as GetMessageBuildersByTypeDelegate;
+        }
+
         private Dictionary<Type, PrimitiveSerializer> GetPrimitiveSerializers()
         {
             return new List<KeyValuePair<Type, PrimitiveSerializer>>()
@@ -543,6 +678,11 @@ namespace DatomicNet.Core
             );
         }
 
+        private IEnumerable<T> Yield<T>(this T item)
+        {
+            yield return item;
+        }
+
         private object CreateInstance(Type type)
         {
             if (type == typeof(string))
@@ -574,6 +714,8 @@ namespace DatomicNet.Core
         private class MessageTypeHandler<T>
         {
             public TypeRegistration<T> TypeRegistration;
+            public Func<T, ulong> KeyGetter;
+            public Func<ulong, T> Factory;
             public Dictionary<ushort, FieldHandler> FieldsByParameterNumber;
         }
 
@@ -585,7 +727,8 @@ namespace DatomicNet.Core
 
         private class FieldHandlerDefinition
         {
-            public BaseTypeRegistration TypeRegistration;
+            public FieldDescriptor FieldDescriptor;
+            public BaseTypeRegistration MessageTypeRegistration;
             public PropertyInfo Property;
             public Type MessageType;
             public Type PropertyOuterType;
@@ -611,8 +754,9 @@ namespace DatomicNet.Core
         {
             public override FieldClass GetFieldClass() => FieldClass.Reference;
             public Func<T, Datom, IEnumerable<Datom>> Serialize;
+            public Func<T, IEnumerable<object>> Follow;
             public ushort ReferencedTypeId;
-            public Func<Datom, ulong> GetReferencedIdentity;
+            public Func<Datom, ulong> DeserializeIdentity;
             public Action<T, int, object> SetReference;
         }
 
@@ -647,6 +791,7 @@ namespace DatomicNet.Core
         {
             public ushort AggregateType;
             public ulong AggregateId;
+            public ulong TransactionId;
             public DatomAction Action = DatomAction.Assertion;
         }
         #endregion

@@ -148,34 +148,28 @@ namespace DatomicNet.Core
         {
             var type = typeof(T);
             var keyedRegistrationInfo = registrationInfo as TypeRegistration<T>;
-            Func<T, ulong> keyGetter;
-            Func<ulong, T> factory;
+            Func<ParameterExpression, Expression> keyGetterExpressionBuilder;
+            Func<ParameterExpression, Expression> factoryExpressionBuilder;
             if (keyedRegistrationInfo != null)
             {
-                keyGetter = keyedRegistrationInfo.KeyGetter;
-                factory = keyedRegistrationInfo.Factory;
+                keyGetterExpressionBuilder = keyedRegistrationInfo.KeyGetterExpressionBuilder;
+                factoryExpressionBuilder = keyedRegistrationInfo.FactoryExpressionBuilder;
             } 
             else
             {
                 try
                 {
-                    var entityParameter = Expression.Parameter(type, "entity");
-                    var keyParameter = Expression.Parameter(typeof(ulong), "id");
-                    var idExpression = Expression.PropertyOrField(entityParameter, "Id");
-
                     var constructor = type.GetConstructors().First(x => x.GetParameters().Count() == 0);
                     var memberInfo = type.GetProperty("Id");
                     var constructInstance = Expression.New(constructor);
-                    var createAndAssign = Expression.MemberInit(constructInstance, Expression.Bind(memberInfo, keyParameter));
 
-                    var setExpression = Expression.Assign(idExpression, keyParameter);
-                    keyGetter = Expression.Lambda<Func<T, ulong>>(idExpression, entityParameter).Compile();
-                    factory = Expression.Lambda<Func<ulong, T>>(createAndAssign, keyParameter).Compile();
+                    keyGetterExpressionBuilder = (parameter) => Expression.PropertyOrField(parameter, "Id");
+                    factoryExpressionBuilder = (parameter) => Expression.MemberInit(constructInstance, Expression.Bind(memberInfo, parameter));
                 }
                 catch (Exception ex)
                 {
                     throw new InvalidOperationException(
-                        $"Unable to create {nameof(keyGetter)} and {nameof(factory)}  for type {type.FullName}. "
+                        $"Unable to create {nameof(keyGetterExpressionBuilder)} and {nameof(factoryExpressionBuilder)}  for type {type.FullName}. "
                       + $"Either give it a ulong property named `Id` or specify getter and setter with an IKeyedTypeRegistration.",
                         ex
                     );
@@ -187,8 +181,8 @@ namespace DatomicNet.Core
                 Type = type,
                 TypeId = registrationInfo.TypeId,
                 AggregateId = registrationInfo.AggregateId,
-                KeyGetter = keyGetter,
-                Factory = factory,
+                KeyGetterExpressionBuilder = keyGetterExpressionBuilder,
+                FactoryExpressionBuilder = factoryExpressionBuilder,
             };
             ByType<T>.Value = registration;
         }
@@ -213,8 +207,12 @@ namespace DatomicNet.Core
 
     public class TypeRegistration<T> : BaseTypeRegistration
     {
-        public Func<T, ulong> KeyGetter { get; set; }
-        public Func<ulong, T> Factory { get; set; }
+        // parameter of type T, should return ulong
+        public Func<Expression, Expression> KeyGetterExpressionBuilder;
+
+        // parameter of type ulong, should return T
+        public Func<Expression, Expression> FactoryExpressionBuilder;
+        
     }
     
 }

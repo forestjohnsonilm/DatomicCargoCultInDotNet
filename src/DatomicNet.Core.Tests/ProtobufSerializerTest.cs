@@ -42,7 +42,17 @@ namespace DatomicNet.Core.Tests
 
             result.ShouldBeEquivalentTo(GetTestAggregate());
         }
-        
+
+        [Fact]
+        public void SerializeTest()
+        {
+            var example = GetTestAggregate();
+
+            var result = _datomSerializer.Serialize(example);
+
+            result.ShouldBeEquivalentTo(GetTestDatoms());
+        }
+
         //message TestAggregate {
         //  uint64 id = 1;
         //  uint32 categoryId = 2;
