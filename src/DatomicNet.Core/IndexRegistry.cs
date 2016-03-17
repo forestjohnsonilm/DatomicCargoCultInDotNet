@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 namespace DatomicNet.Core
 {
-    class DatomIndexes
+    class IndexRegistry
     {
-
-        //public DatomIndexes()
+        public IndexRegistry()
     }
 }

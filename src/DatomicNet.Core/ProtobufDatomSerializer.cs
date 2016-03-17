@@ -14,7 +14,7 @@ namespace DatomicNet.Core
     {
         #region Private variables and constructor
 
-        private TypeRegistry _typeRegistry;
+        private SchemaRegistry _typeRegistry;
 
         private static class MessageTypeHandlers<T>
         {
@@ -38,7 +38,7 @@ namespace DatomicNet.Core
         private BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
 
         public ProtobufDatomSerializer(
-                TypeRegistry typeRegistry,
+                SchemaRegistry typeRegistry,
                 params Assembly[] assemblies
             )
         {
@@ -60,7 +60,7 @@ namespace DatomicNet.Core
             {
                 throw new InvalidOperationException($"IMessages [{string.Join(", ", errors)}] are not registered types. "
                       + "Make sure your registerTypePredicate matches them and you include the assemblies in which "
-                      + "they are declared when you construct your TypeRegistry.");
+                      + "they are declared when you construct your SchemaRegistry.");
             }
             
             

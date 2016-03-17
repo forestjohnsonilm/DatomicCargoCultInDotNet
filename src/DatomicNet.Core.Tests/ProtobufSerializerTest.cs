@@ -12,13 +12,14 @@ using System.Reflection;
 using FluentAssertions;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
+using Newtonsoft.Json;
 
 namespace DatomicNet.Core.Tests
 {
     public class ProtobufSerializerTest
     {
 
-        private TypeRegistry _typeRegistry;
+        private SchemaRegistry _typeRegistry;
         private ProtobufDatomSerializer _datomSerializer;
         private ulong _aggregateIdentity = 1;
         private ulong _categoryId1 = 10;
@@ -29,7 +30,7 @@ namespace DatomicNet.Core.Tests
         public ProtobufSerializerTest()
         {
             var assemblies = new Assembly[] { typeof(ProtobufSerializerTest).GetTypeInfo().Assembly };
-            _typeRegistry = new TypeRegistry((type) => typeof(IMessage).IsAssignableFrom(type), assemblies);
+            _typeRegistry = new SchemaRegistry((type) => typeof(IMessage).IsAssignableFrom(type), assemblies);
             _datomSerializer = new ProtobufDatomSerializer(_typeRegistry, assemblies);
         }
 
@@ -56,6 +57,47 @@ namespace DatomicNet.Core.Tests
             var datomsString = string.Join("\n", datoms.Select(_datomSerializer.DebugFormatDatom));
 
             result.ShouldBeEquivalentTo(datoms);
+        }
+
+        [Fact]
+        public void PerfTest()
+        {
+            var datoms = GetTestDatoms();
+
+            TestAggregate result = GetTestAggregate();
+
+
+            var sw0 = new Stopwatch();
+            sw0.Start();
+            ByteString bytes;
+            for (var i = 0; i < 10000; i++)
+            {
+                bytes = result.ToByteString();
+                result = TestAggregate.Parser.ParseFrom(bytes);
+            }
+            sw0.Stop();
+
+            var sw1 = new Stopwatch();
+            sw1.Start();
+            for (var i = 0; i < 10000; i++)
+            {
+                result = _datomSerializer.Deserialize<TestAggregate>(datoms);
+                datoms = _datomSerializer.Serialize(result).ToArray();
+            }
+            sw1.Stop();
+
+            var sw2 = new Stopwatch();
+            sw2.Start();
+            string jsonString = null;
+            for (var i = 0; i < 10000; i++)
+            {
+                jsonString = JsonConvert.SerializeObject(result);
+                result = JsonConvert.DeserializeObject<TestAggregate>(jsonString);
+            }
+            sw2.Stop();
+
+
+            result.ShouldBeEquivalentTo(GetTestAggregate());
         }
 
         #region proto schema comment

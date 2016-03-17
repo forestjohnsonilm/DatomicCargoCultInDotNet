@@ -6,7 +6,7 @@ using System.Linq.Expressions;
 
 namespace DatomicNet.Core
 {
-    public class TypeRegistry
+    public class SchemaRegistry
     {
         private readonly IReadOnlyDictionary<ushort, Func<BaseTypeRegistration>> _typeRegistrationById;
         private readonly IReadOnlyDictionary<Type, Func<BaseTypeRegistration>> _typeRegistrationByType;
@@ -14,7 +14,7 @@ namespace DatomicNet.Core
 
         private BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
 
-        public TypeRegistry(
+        public SchemaRegistry(
                 Func<Type, bool> registerTypePredicate,
                 params Assembly[] assemblies
             )
@@ -125,8 +125,8 @@ namespace DatomicNet.Core
 
         private Func<BaseTypeRegistration> GetRegistrationGetterForType(Type type)
         {
-            var reflectedMethod = typeof(TypeRegistry)
-                .GetMethod($"{nameof(TypeRegistry.TypeRegistrationGeneric)}")
+            var reflectedMethod = typeof(SchemaRegistry)
+                .GetMethod($"{nameof(SchemaRegistry.TypeRegistrationGeneric)}")
                 .MakeGenericMethod(type);
             var callExpression = Expression.Call(
                     Expression.Constant(this),
@@ -137,8 +137,8 @@ namespace DatomicNet.Core
 
         private void SetTypeRegistrationForType(BaseTypeRegistration registration)
         {
-            var reflectedMethod = typeof(TypeRegistry)
-                .GetMethod($"{nameof(TypeRegistry.SetTypeRegistrationForTypeGeneric)}", PrivateInstance)
+            var reflectedMethod = typeof(SchemaRegistry)
+                .GetMethod($"{nameof(SchemaRegistry.SetTypeRegistrationForTypeGeneric)}", PrivateInstance)
                 .MakeGenericMethod(registration.Type);
 
             reflectedMethod.Invoke(this, new object[] { registration });
@@ -155,9 +155,11 @@ namespace DatomicNet.Core
             {
                 if(keyMember == null || keyedRegistrationInfo.KeyGetterExpressionBuilder == null || keyedRegistrationInfo.FactoryExpressionBuilder == null)
                 {
-                    throw new InvalidOperationException($"If you provide a custom {nameof(TypeRegistration<int>.KeyGetterExpressionBuilder)} "
+                    throw new InvalidOperationException(
+                          $"If you provide a custom {nameof(TypeRegistration<int>.KeyGetterExpressionBuilder)} "
                         + $"or {nameof(TypeRegistration<int>.KeyGetterExpressionBuilder)}, you must include both, as well as "
-                        + $"the {nameof(TypeRegistration<int>.KeyMember)} parameter.");
+                        + $"the {nameof(TypeRegistration<int>.KeyMember)} parameter."
+                    );
                 }
                 keyGetterExpressionBuilder = keyedRegistrationInfo.KeyGetterExpressionBuilder;
                 factoryExpressionBuilder = keyedRegistrationInfo.FactoryExpressionBuilder;
