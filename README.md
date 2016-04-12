@@ -1,8 +1,12 @@
 # Datomic Cargo Cult In Dot Net
 
+"Cargo Cult" refers to an isolated island population immitating the appearance of advanced foriegn technology. 
 
+![https://github.com/forestjohnsonilm/DatomicCargoCultInDotNet/blob/master/cargo-cult.jpg?raw=true]
 
-[Datomic](http://www.datomic.com/) is a new kind of database based on accretion of facts rather than association of value(s) with id(s) like a relational or document database. The facts are formatted in such a way that they each stand alone as the smallest possible complete unit of data. Each one is called a Datom, or data atom. Each one contains: 
+This project is a work in progress, not functional, and purely my own academic persuit. It is not in any way associated with Datomic and does not contain any code or material from the Datomic project.
+
+[Datomic](http://www.datomic.com/) is a new kind of database based on accretion of facts, rather than association of value(s) with id(s) like a relational or document database. The facts are formatted in such a way that they each stand alone as the smallest possible complete unit of data. Each one is called a Datom, or data atom. Each one contains: 
 
 * Identity        (Which thing are we talking about? For example, Person1)
 * Property        (What property are we talking about? For example, Email Address)
