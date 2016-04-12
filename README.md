@@ -2,7 +2,7 @@
 
 "Cargo Cult" refers to an isolated island population immitating the appearance of advanced foriegn technology. 
 
-[https://github.com/forestjohnsonilm/DatomicCargoCultInDotNet/blob/master/cargo-cult.jpg?raw=true]
+![Picture of fake airplane](https://github.com/forestjohnsonilm/DatomicCargoCultInDotNet/blob/master/cargo-cult.jpg?raw=true)
 
 This project is a work in progress, not functional, and purely my own academic persuit. It is not in any way associated with Datomic and does not contain any code or material from the Datomic project.
 
